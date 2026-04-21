@@ -41,8 +41,8 @@ class _widget_base():
     def get_rect(self, camPosMod: bool = True, camZoomMod: bool = True, padding:float = 0) -> pygame.Rect:
 
         p: pygame.Vector2 = self.get_pos(camPosMod).copy()
-        if camZoomMod:
-            padding *= self.camera.zoom
+        #if camZoomMod:
+        #    padding *= self.camera.zoom
         
         s: pygame.Vector2 = pygame.Vector2(
             max(self.min_size.x, self.size.x+(padding*2)),
@@ -56,9 +56,8 @@ class _widget_base():
         ret = pygame.Rect((p - (s/2)),s)
         return ret
 
-    def collideMouse(self, rect:pygame.Rect=None):
-        if not rect:
-            rect = self.get_rect()
+    def collideMouse(self, padding: float = 0) -> bool:
+        rect = self.get_rect(padding=padding)
         
         return rect.collidepoint(pygame.mouse.get_pos())
 
@@ -76,10 +75,10 @@ class widget(_widget_base):
         self.selected: bool = False
 
         self._buttons:list[widgetButton] = [
-            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0.5,0),pygame.Vector2(0,-20)),
-            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0,0.5),pygame.Vector2(-20,0)),
-            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0.5,1),pygame.Vector2(0,20)),
-            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(1,0.5),pygame.Vector2(20,0)),
+            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0.5,0),20),
+            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0,0.5),20),
+            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(0.5,1),20),
+            widgetButton(screen, camera, self, widgetButtonTypes.LINK,pygame.Vector2(1,0.5),20),
             widgetButton(screen, camera, self, widgetButtonTypes.RESIZE,pygame.Vector2(1,1)),
             widgetButton(screen, camera, self, widgetButtonTypes.DELETE,pygame.Vector2(1,0)),
         ]
@@ -102,20 +101,6 @@ class widget(_widget_base):
         super().move_by(pos_mod)
         self._update_buttons()
 
-    def collideMouse(self, padding: bool = True):
-        padding_amount: float = 30
-
-        rect = self.get_rect(padding=padding_amount)
-        if padding:
-            rect = pygame.Rect(
-                rect.x - padding_amount,
-                rect.y - padding_amount,
-                rect.w + (padding_amount*2),
-                rect.h + (padding_amount*2),
-            )
-        
-        return super().collideMouse(rect)
-
     def get_buttons(self):
         return self._buttons
 
@@ -134,17 +119,16 @@ class widget(_widget_base):
                 i.render()
 
 class widgetButton(_widget_base):
-    def __init__(self, screen, camera:camClass, parent:widget, type: widgetButtonTypes, anchor: pygame.Vector2,offset:pygame.Vector2=pygame.Vector2(0,0)):
+    def __init__(self, screen, camera:camClass, parent:widget, type: widgetButtonTypes, anchor: pygame.Vector2,offset:float=0.0):
         super().__init__(screen, camera, pygame.Vector2(0,0), pygame.Vector2(20,20))
         self.parent = parent
         self.type: widgetButtonTypes = type
         self.anchor: pygame.Vector2 = anchor
-        self.offset: pygame.Vector2 = offset
+        self.offset: float = offset
     
     def get_rect(self, camPosMod: bool = True, camZoomMod: bool = True, padding:float = 0) -> pygame.Rect:
-        rect = self.parent.get_rect(camPosMod=False)
+        rect = self.parent.get_rect(camPosMod=False, camZoomMod=False, padding=self.offset)
         rect_size = pygame.Vector2(rect.size)
-        print(rect_size)
 
         self.pos = pygame.Vector2(rect.topleft)
 
@@ -157,9 +141,9 @@ class widgetButton(_widget_base):
             rect_size.y * self.anchor.y,
         )
 
-        self.pos.x += self.offset.x
-        self.pos.y += self.offset.y
-        ret = super().get_rect(camPosMod, False, padding)
+        #self.pos.x += self.offset.x
+        #self.pos.y += self.offset.y
+        ret = super().get_rect(camPosMod, camZoomMod, padding)
 
         return ret
     def update(self):

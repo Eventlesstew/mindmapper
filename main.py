@@ -19,18 +19,9 @@ global leftClick_sequence; leftClick_sequence: int = 1
 
 global rightClick; rightClick = False
 
+global selected_state; selected_state: widgetButtonTypes = widgetButtonTypes.NULL
 global selected_element; selected_element: widget = None
 global selected_button; selected_button: widgetButton = None
-
-class gClass:
-    def __init__(self):
-        self.selected_element: widget = None
-        
-        self.selected_state: widgetButtonTypes = widgetButtonTypes.NULL
-        self.selected_button: widgetButton = None
-
-        self.panMousePos: pygame.Vector2 = pygame.Vector2(0,0)
-G = gClass()
 
 class confClass:
     def __init__(self):
@@ -70,11 +61,12 @@ def removeWidget(w: widget):
                 break
 
 def selectWidget():
+    global selected_state, selected_element
     for i in range(0, len(F.widget_list)):
-        if G.selected_state == widgetButtonTypes.NULL:
-            F.widget_list[i].selected = F.widget_list[i].collideMouse()
+        if selected_state == widgetButtonTypes.NULL:
+            F.widget_list[i].selected = F.widget_list[i].collideMouse(30)
         else:
-            F.widget_list[i].selected = (F.widget_list[i] == G.selected_element)
+            F.widget_list[i].selected = (F.widget_list[i] == selected_element)
 
 def updateWidgets():
     for i in F.widget_list:
@@ -82,12 +74,17 @@ def updateWidgets():
 
 def on_mouseMotion():
     selectWidget()
-    global rightClick, camera
+    global rightClick, camera, selected_element, selected_state
     if rightClick:
         camera.move_by(pygame.Vector2(pygame.mouse.get_rel()))
+    elif selected_element:
+        if selected_state == widgetButtonTypes.REPOSITION:
+            selected_element.move_by(pygame.Vector2(pygame.mouse.get_rel()) / camera.zoom)
+        elif selected_state == widgetButtonTypes.RESIZE:
+            selected_element.resize_by(pygame.Vector2(pygame.mouse.get_rel()) * 2 / camera.zoom)
 
 def on_leftClick():
-    global leftClick, leftClick_timestamp, leftClick_sequence
+    global leftClick, leftClick_timestamp, leftClick_sequence, selected_element, selected_state, selected_button
     leftClick = True
 
     pygame.mouse.get_rel()
@@ -103,53 +100,53 @@ def on_leftClick():
     selected: bool = False
     for i in range(0, len(F.widget_list))[::-1]:
         v = F.widget_list[i]
-        if v.collideMouse(False):
-            G.selected_state = widgetButtonTypes.REPOSITION
-            selected = True
-        if v.collideMouse(True):
+        if v.collideMouse(20):
+            if v.collideMouse():
+                selected_state = widgetButtonTypes.REPOSITION
+                selected = True
             for b in v.get_buttons():
                 if b.collideMouse():
-                    G.selected_button = b
-                    G.selected_state = b.type
+                    selected_button = b
+                    selected_state = b.type
                     selected = True
         
         if selected:
-            G.selected_element = v
+            selected_element = v
             break
     
     if not selected:
         if double_click:
-            G.selected_element = addWidget()
-            G.selected_state = widgetButtonTypes.REPOSITION
+            selected_element = addWidget()
+            selected_state = widgetButtonTypes.REPOSITION
     
     leftClick_timestamp = timestamp
     selectWidget()
 
 def onRelease_leftClick():
-    global leftClick
+    global leftClick, selected_element, selected_state, selected_button
     leftClick = False
-    if G.selected_element:
-        G.selected_element.update()
+    if selected_element:
+        selected_element.update()
 
-        if G.selected_state == widgetButtonTypes.LINK:
-            widget1 = G.selected_element
+        if selected_state == widgetButtonTypes.LINK:
+            widget1 = selected_element
             widget2: widget = None
             for i in F.widget_list:
-                if i != G.selected_element and i.collideMouse():
+                if i != selected_element and i.collideMouse():
                     widget2 = i
-                    G.selected_element = None
+                    selected_element = None
                     break
             
             if not widget2:
                 widget2 = addWidget(None)
-                G.selected_element = widget2
+                selected_element = widget2
             
             F.line_list.append(widget_link(screen, camera, widget1, widget2))
-        elif G.selected_state == widgetButtonTypes.DELETE:
-            if G.selected_button and G.selected_button.collideMouse():
-                removeWidget(G.selected_element)
+        elif selected_state == widgetButtonTypes.DELETE:
+            if selected_button and selected_button.collideMouse():
+                removeWidget(selected_element)
     
-    G.selected_state = widgetButtonTypes.NULL
+    selected_state = widgetButtonTypes.NULL
     selectWidget()
 
 def on_rightClick():
@@ -187,13 +184,9 @@ while running:
     
     screen.fill("white")
 
-    if G.selected_state != widgetButtonTypes.NULL and G.selected_element:
-        if G.selected_state == widgetButtonTypes.REPOSITION:
-            G.selected_element.move_by(pygame.Vector2(pygame.mouse.get_rel()))
-        elif G.selected_state == widgetButtonTypes.RESIZE:
-            G.selected_element.resize_by(pygame.Vector2(pygame.mouse.get_rel()) * 2)
-        elif G.selected_state == widgetButtonTypes.LINK:
-            pygame.draw.line(screen, 'red', G.selected_element.get_pos(), pygame.mouse.get_pos(), 5)
+    if selected_state != widgetButtonTypes.NULL and selected_element:
+        if selected_state == widgetButtonTypes.LINK:
+            pygame.draw.line(screen, 'red', selected_element.get_pos(), pygame.mouse.get_pos(), 5)
 
     for i in F.line_list:
         i.render()
