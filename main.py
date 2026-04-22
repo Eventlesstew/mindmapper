@@ -4,7 +4,6 @@ from elements import widgetButton
 from elements import widget_link
 from camera import camClass
 from config import confClass
-
 class fClass:
     def __init__(self):
         self.widget_list: list[widget] = []
@@ -184,6 +183,8 @@ def on_mouseWheel(event):
         camera.move_by(movement)
     else:
         camera.zoom_by(event.precise_y/10)
+        for i in F.widget_list:
+            i.render_text()
     updateWidgets()
     
 def _input(event):
@@ -201,6 +202,13 @@ def _input(event):
             onRelease_rightClick()
     if event.type == pygame.MOUSEWHEEL:
         on_mouseWheel(event)
+    if event.type == pygame.KEYDOWN:
+        global selected_widget
+        if selected_widget:
+            selected_widget.input_text(event)
+
+    if event.type == pygame.FINGERMOTION:
+        print(pygame.Vector2(event.dx,event.dy))
 
 while running:
     for event in pygame.event.get():

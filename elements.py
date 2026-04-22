@@ -68,6 +68,13 @@ class widget(_widget_base):
         super().__init__(screen, camera, pos, size, size)
         self.selected: bool = False
         self.state: int = 0
+        self.text: str = 'Hello, World!'
+        self.render_text()
+
+    def render_text(self):
+        self.font = pygame.font.Font(None, round(32*self.camera.zoom))
+        #*= self.camera.zoom
+        self.txt_surface = self.font.render(self.text, True, 'black')
 
     class stateTypes(Enum):
         IDLE = 0,
@@ -82,19 +89,40 @@ class widget(_widget_base):
     
     def resize_by(self, size_mod: pygame.Vector2):
         self.size += size_mod
+        self.render_text()
     
     def move_by(self, pos_mod: pygame.Vector2):
         super().move_by(pos_mod)
 
     def render(self):
         rect = self.get_rect()
+
+        ts = pygame.Vector2(self.font.size(self.text))
+        text_rect = pygame.Rect(
+            self.get_pos() - (ts/2),
+            ts
+        )
         color = 'black'
 
         if self.is_selected():
             color = 'red'
 
         pygame.draw.rect(self.screen, 'white', rect)
+
+        self.screen.blit(self.txt_surface, (text_rect.x, text_rect.y))
+
         pygame.draw.rect(self.screen, color, rect,5)
+    
+    def input_text(self, event):
+         if event.type == pygame.KEYDOWN and self.state == self.stateTypes.TEXT:
+            if event.key == pygame.K_RETURN:
+                self.text += '\n'
+            elif event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            else:
+                self.text += event.unicode
+            # Re-render the text.
+            self.render_text()
 
 class widgetButton(_widget_base):
     def __init__(self, screen, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):
