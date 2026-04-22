@@ -2,7 +2,6 @@ import pygame
 from elements import widget
 from elements import widgetButton
 from elements import widget_link
-from elements import widgetButtonTypes
 from camera import camClass
 from config import confClass
 
@@ -69,7 +68,11 @@ def removeWidget(w: widget):
 def updateWidgets():
     for i in range(0, len(F.widget_list)):
         v = F.widget_list[i]
-        v.selected = (v == selected_widget)
+        if v == selected_widget:
+            if v.state == v.stateTypes.IDLE:
+                v.state = v.stateTypes.SELECTED
+        else:
+            v.state = v.stateTypes.IDLE
 
         v.update()
 
@@ -81,7 +84,7 @@ def on_mouseMotion():
         if selected_button == selected_widget:
             selected_widget.move_by(pygame.Vector2(pygame.mouse.get_rel()) / camera.zoom)
         elif isinstance(selected_button, widgetButton):
-            if selected_button.type == widgetButtonTypes.RESIZE:
+            if selected_button.type == widgetButton.buttonTypes.RESIZE:
                 selected_widget.resize_by(pygame.Vector2(pygame.mouse.get_rel()) * 2 / camera.zoom)
 
 def on_leftClick():
@@ -116,7 +119,7 @@ def on_leftClick():
     
     if double_click:
         if selected_widget:
-            pass
+            selected_widget.state = widget.stateTypes.TEXT
             # Code here should be for text input.
         else:
             selected_widget = addWidget()
@@ -132,7 +135,7 @@ def onRelease_leftClick():
         selected_widget.update()
 
         if isinstance(selected_button, widgetButton):
-            if selected_button.type == widgetButtonTypes.LINK:
+            if selected_button.type == widgetButton.buttonTypes.LINK:
                 widget1 = selected_widget
                 widget2: widget = None
                 for i in F.widget_list:
@@ -146,7 +149,7 @@ def onRelease_leftClick():
                     selected_widget = widget2
                 
                 F.line_list.append(widget_link(screen, camera, widget1, widget2))
-            elif selected_button.type == widgetButtonTypes.DELETE and selected_button.collideMouse():
+            elif selected_button.type == widgetButton.buttonTypes.DELETE and selected_button.collideMouse():
                 removeWidget(selected_widget)
     
     selected_button = None
@@ -195,7 +198,7 @@ while running:
     screen.fill("white")
 
     if isinstance(selected_button, widgetButton) and selected_widget:
-        if selected_button.type == widgetButtonTypes.LINK:
+        if selected_button.type == widgetButton.buttonTypes.LINK:
             pygame.draw.line(screen, 'red', selected_widget.get_pos(), pygame.mouse.get_pos(), 5)
 
     for i in F.line_list:
