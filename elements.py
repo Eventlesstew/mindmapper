@@ -38,9 +38,9 @@ class _widget_base():
     def update(self):
         self.size = pygame.Vector2(self.get_rect(False, False).size)
     
-    def get_rect(self, camPosMod: bool = True, camZoomMod: bool = True, padding:float = 0) -> pygame.Rect:
+    def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
 
-        p: pygame.Vector2 = self.get_pos(camPosMod).copy()
+        p: pygame.Vector2 = self.get_pos(camMod).copy()
         #if camZoomMod:
         #    padding *= self.camera.zoom
         
@@ -48,57 +48,43 @@ class _widget_base():
             max(self.min_size.x, self.size.x)+(padding*2),
             max(self.min_size.y, self.size.y)+(padding*2)
         )
-        if camPosMod:
+        if camMod:
             p *= self.camera.zoom
-        if camZoomMod:
             s *= self.camera.zoom
               
         ret = pygame.Rect((p - (s/2)),s)
         return ret
 
+    def _rect_collideMouse(self, rect:pygame.Rect):
+        return rect.collidepoint(pygame.mouse.get_pos())
+
     def collideMouse(self, padding: float = 0) -> bool:
         rect = self.get_rect(padding=padding)
         
-        return rect.collidepoint(pygame.mouse.get_pos())
+        return self._rect_collideMouse(rect)
 
 class widget(_widget_base):
+    def __init__(self, screen, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = pygame.Vector2(100, 75)):
+        super().__init__(screen, camera, pos, size, size)
+        self.selected: bool = False
+        self.state: int = 0
+
     class stateTypes(Enum):
         IDLE = 0,
         SELECTED = 1,
         TEXT = 2,
-    def __init__(self, screen, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = pygame.Vector2(100, 75)):
-        super().__init__(screen, camera, pos, size, size)
-        self.state: int = False
 
-        self._buttons:list[widgetButton] = [
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
-            widgetButton(screen, camera, self, widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0)),
-        ]
-        self._update_buttons()
-
-    def _update_buttons(self):
-        #rect: pygame.Rect = self.get_rect(False)
-        for i in self._buttons: 
-            i.update()
-    
     def update(self):
         super().update()
-        self._update_buttons()
+    
+    def is_selected(self):
+        return self.state != self.stateTypes.IDLE
     
     def resize_by(self, size_mod: pygame.Vector2):
         self.size += size_mod
-        self._update_buttons()
     
     def move_by(self, pos_mod: pygame.Vector2):
         super().move_by(pos_mod)
-        self._update_buttons()
-
-    def get_buttons(self):
-        return self._buttons
 
     def render(self):
         rect = self.get_rect()
@@ -110,17 +96,10 @@ class widget(_widget_base):
         pygame.draw.rect(self.screen, 'white', rect)
         pygame.draw.rect(self.screen, color, rect,5)
 
-        for i in self.get_buttons():
-            i.render()
-    
-    def is_selected(self):
-        return self.selected
-
 class widgetButton(_widget_base):
-    def __init__(self, screen, camera:camClass, parent:widget, type: widgetButton.buttonTypes, anchor: pygame.Vector2,offset:float=0.0):
+    def __init__(self, screen, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):
         super().__init__(screen, camera, pygame.Vector2(0,0), pygame.Vector2(20,20))
-        self.parent = parent
-        self.type: widgetButton.buttonTypes = type
+        self.type: int = type
         self.anchor: pygame.Vector2 = anchor
         self.offset: float = offset
     
@@ -132,8 +111,8 @@ class widgetButton(_widget_base):
         TEXTINPUT = 2
         DELETE = 4
     
-    def get_rect(self, camPosMod: bool = True, camZoomMod: bool = True, padding:float = 0) -> pygame.Rect:
-        rect = self.parent.get_rect(camPosMod=False, camZoomMod=False, padding=self.offset)
+    def get_rect(self, parent: widget, camMod: bool = True, padding:float = 0) -> pygame.Rect:
+        rect = parent.get_rect(camMod=False, padding=self.offset)
         rect_size = pygame.Vector2(rect.size)
 
         self.pos = pygame.Vector2(rect.topleft)
@@ -149,15 +128,20 @@ class widgetButton(_widget_base):
 
         #self.pos.x += self.offset.x
         #self.pos.y += self.offset.y
-        ret = super().get_rect(camPosMod, camZoomMod, padding)
+        ret = super().get_rect(camMod, padding)
+
         return ret
     
+    def collideMouse(self, parent: widget, padding: float = 0) -> bool:
+        rect = self.get_rect(parent=parent, padding=padding)
+        return self._rect_collideMouse(rect)
+    
     def update(self):
+
         return self.pos
 
-    def render(self):
-        if self.parent and self.parent.is_selected():
-            pygame.draw.rect(self.screen, 'red', self.get_rect())
+    def render(self, parent: widget):
+        pygame.draw.rect(self.screen, 'red', self.get_rect(parent))
         
 class widget_link:
     def __init__(self, screen, camera: camClass, widget1: widget, widget2: widget, width: float = 5):

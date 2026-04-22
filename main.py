@@ -11,8 +11,10 @@ class fClass:
         self.line_list: list[widget_link] = []
 F = fClass()
 
-global camera; camera: camClass = camClass()
+pygame.init()
 
+global camera; camera: camClass = camClass()
+global screen; screen = pygame.display.set_mode(camera.size)
 global leftClick; leftClick = False
 global leftClick_timestamp; leftClick_timestamp = pygame.time.get_ticks()
 global leftClick_sequence; leftClick_sequence: int = 1
@@ -22,11 +24,16 @@ global rightClick; rightClick = False
 global selected_widget; selected_widget: widget = None
 global selected_button; selected_button: widgetButton = None
 
+button_list = [
+    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
+    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
+    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
+    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
+    widgetButton(screen, camera, widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
+    widgetButton(screen, camera, widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0)),
+]
+
 conf = confClass()
-
-
-pygame.init()
-screen = pygame.display.set_mode(camera.size)
 #print(type(screen))
 
 clock = pygame.time.Clock()
@@ -103,10 +110,15 @@ def on_leftClick():
     if selected_widget and selected_widget.collideMouse(30):
         selected_button = None
         
-        for b in selected_widget.get_buttons() + [selected_widget]:
-            if b.collideMouse():
-                selected_button = b
-                break
+        for b in button_list + [selected_widget]:
+            if isinstance(b, widgetButton):
+                if b.collideMouse(selected_widget):
+                    selected_button = b
+                    break
+            else:
+                if b.collideMouse():
+                    selected_button = b
+                    break
     else:
         selected_widget = None
     
@@ -141,14 +153,14 @@ def onRelease_leftClick():
                 for i in F.widget_list:
                     if i != selected_widget and i.collideMouse():
                         widget2 = i
-                        selected_widget = None
                         break
                 
                 if not widget2:
                     widget2 = addWidget(None)
-                    selected_widget = widget2
                 
                 F.line_list.append(widget_link(screen, camera, widget1, widget2))
+                selected_widget = widget2
+                updateWidgets()
             elif selected_button.type == widgetButton.buttonTypes.DELETE and selected_button.collideMouse():
                 removeWidget(selected_widget)
     
@@ -206,6 +218,10 @@ while running:
     
     for i in F.widget_list:
         i.render()
+
+    if selected_widget:
+        for i in button_list:
+            i.render(selected_widget)
     pygame.display.flip()
 
     # limits FPS to 60
