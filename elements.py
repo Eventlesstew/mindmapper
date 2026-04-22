@@ -45,8 +45,8 @@ class _widget_base():
         #    padding *= self.camera.zoom
         
         s: pygame.Vector2 = pygame.Vector2(
-            max(self.min_size.x, self.size.x+(padding*2)),
-            max(self.min_size.y, self.size.y+(padding*2))
+            max(self.min_size.x, self.size.x)+(padding*2),
+            max(self.min_size.y, self.size.y)+(padding*2)
         )
         if camPosMod:
             p *= self.camera.zoom
@@ -108,15 +108,17 @@ class widget(_widget_base):
         rect = self.get_rect()
         color = 'black'
 
-        if self.selected:
+        if self.is_selected():
             color = 'red'
 
         pygame.draw.rect(self.screen, 'white', rect)
         pygame.draw.rect(self.screen, color, rect,5)
 
-        if self.selected:
-            for i in self.get_buttons():
-                i.render()
+        for i in self.get_buttons():
+            i.render()
+    
+    def is_selected(self):
+        return self.selected
 
 class widgetButton(_widget_base):
     def __init__(self, screen, camera:camClass, parent:widget, type: widgetButtonTypes, anchor: pygame.Vector2,offset:float=0.0):
@@ -144,23 +146,14 @@ class widgetButton(_widget_base):
         #self.pos.x += self.offset.x
         #self.pos.y += self.offset.y
         ret = super().get_rect(camPosMod, camZoomMod, padding)
-
         return ret
+    
     def update(self):
-        #rect = self.parent.get_rect(camPosMod=False)
-        #rect_size = pygame.Vector2(rect.size)
-        #self.pos = pygame.Vector2(rect.topleft) #* self.camera.zoom
-
-        #self.pos += pygame.Vector2(
-        #    rect_size.x * self.anchor.x,
-        #    rect_size.y * self.anchor.y,
-        #)
-        #self.pos += self.offset
-
         return self.pos
 
     def render(self):
-        pygame.draw.rect(self.screen, 'red', self.get_rect())
+        if self.parent and self.parent.is_selected():
+            pygame.draw.rect(self.screen, 'red', self.get_rect())
         
 class widget_link:
     def __init__(self, screen, camera: camClass, widget1: widget, widget2: widget, width: float = 5):
