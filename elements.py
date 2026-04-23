@@ -100,42 +100,38 @@ class widget(_widget_base):
     def update_text(self):
         font = self.get_font(False)
         text_bounds = self.get_rect(False, -self.FONT_OFFSET)
+        
+        result_text = [self.raw_text]
         self.text = [self.raw_text]
 
         # THIS NEEDS A FULL REDO
         loop = True
         while loop:
             loop = False
-
-            result_text = self.text
-            for text in self.text:
+            for text_i in range(0, len(result_text)):
+                text = result_text[text_i]
                 text_rect_size = pygame.Vector2(font.size(text))
 
-                if text_rect_size.x > pygame.Vector2(text_bounds.size).x:
-                    valid_breaks = []
-                    for i in range(0,len(text)):
-                        t = self.raw_text[i]
-                        if t == ' ':
-                            weight = math.floor(abs(i - (len(text)/2)))
-                            valid_breaks.append({
-                                'index':i,
-                                'weight':weight
-                            })
-                    if len(valid_breaks) > 0:
-                        chosen_break = valid_breaks[0]
-                        for i in valid_breaks:
-                            if i['weight'] < chosen_break['weight']:
-                                chosen_break = i
+                chosen_break = None
+                for i in range(0,len(text))[::-1]:
+                    t = text[i]
+                    if t == '\n':
+                        chosen_break = i
+                    elif t == ' ' and text_rect_size.x > pygame.Vector2(text_bounds.size).x:
+                        chosen_break = i
                         
-                        result_text = [
-                            text[0:chosen_break['index']],
-                            text[chosen_break['index']:]
-                        ]
-            
-            if result_text == self.text:
-                loop = False
-            else:
-                self.text = result_text
+                    if chosen_break:
+                        break
+                
+                if chosen_break:
+                    if text_i+1 >= len(result_text):
+                        result_text.append(text[chosen_break+1:])
+                    else:
+                        result_text[text_i+1] = text[chosen_break+1:] + result_text[text_i+1]
+                    result_text[text_i] = text[0:chosen_break]
+                    loop = True
+        
+        self.text = result_text
 
     def render_text(self):
         font = self.get_font(True)
@@ -154,7 +150,7 @@ class widget(_widget_base):
         rect = self.get_rect()
         color = 'black'
 
-        if self.is_selected():
+        if self.state == self.stateTypes.TEXT:
             color = 'red'
 
         pygame.draw.rect(self.screen, 'white', rect)
