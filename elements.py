@@ -1,8 +1,10 @@
 import pygame
 from enum import Enum
 from camera import camClass
+import math
 
 class _widget_base():
+
     def __init__(
         self, 
         screen,
@@ -20,7 +22,7 @@ class _widget_base():
             self.pos: pygame.Vector2 = pos
         else:
             self.pos = self.get_mousePos()
-    
+
     def get_pos(self, camMod: bool = True) -> pygame.Vector2:
         self.pos = pygame.Vector2(self.pos)
 
@@ -41,9 +43,6 @@ class _widget_base():
     def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
 
         p: pygame.Vector2 = self.get_pos(camMod).copy()
-        #if camZoomMod:
-        #    padding *= self.camera.zoom
-        
         s: pygame.Vector2 = pygame.Vector2(
             max(self.min_size.x, self.size.x)+(padding*2),
             max(self.min_size.y, self.size.y)+(padding*2)
@@ -68,14 +67,11 @@ class widget(_widget_base):
         super().__init__(screen, camera, pos, size, size)
         self.selected: bool = False
         self.state: int = 0
-        self.text: str = 'Hello, World!'
-        self.render_text()
+        self.raw_text: str = 'Hello, World!'
+        self.update_text()
 
-    def render_text(self):
-        self.font = pygame.font.Font(None, round(32*self.camera.zoom))
-        #*= self.camera.zoom
-        self.txt_surface = self.font.render(self.text, True, 'black')
-
+    FONT_SIZE: int = 32
+    FONT_OFFSET: int = 20
     class stateTypes(Enum):
         IDLE = 0,
         SELECTED = 1,
@@ -89,19 +85,73 @@ class widget(_widget_base):
     
     def resize_by(self, size_mod: pygame.Vector2):
         self.size += size_mod
-        self.render_text()
+        self.update_text()
     
     def move_by(self, pos_mod: pygame.Vector2):
         super().move_by(pos_mod)
+    
+    def get_font(self, camMod: bool = True) -> pygame.font.Font:
+        size = self.FONT_SIZE
+        if camMod:
+            size *= self.camera.zoom
+        
+        return pygame.font.Font(None, round(size))
 
+    def update_text(self):
+        font = self.get_font(False)
+        text_bounds = self.get_rect(False, -self.FONT_OFFSET)
+        self.text = [self.raw_text]
+
+        # THIS NEEDS A FULL REDO
+        loop = True
+        while loop:
+            loop = False
+
+            result_text = self.text
+            for text in self.text:
+                text_rect_size = pygame.Vector2(font.size(text))
+
+                if text_rect_size.x > pygame.Vector2(text_bounds.size).x:
+                    valid_breaks = []
+                    for i in range(0,len(text)):
+                        t = self.raw_text[i]
+                        if t == ' ':
+                            weight = math.floor(abs(i - (len(text)/2)))
+                            valid_breaks.append({
+                                'index':i,
+                                'weight':weight
+                            })
+                    if len(valid_breaks) > 0:
+                        chosen_break = valid_breaks[0]
+                        for i in valid_breaks:
+                            if i['weight'] < chosen_break['weight']:
+                                chosen_break = i
+                        
+                        result_text = [
+                            text[0:chosen_break['index']],
+                            text[chosen_break['index']:]
+                        ]
+            
+            if result_text == self.text:
+                loop = False
+            else:
+                self.text = result_text
+
+    def render_text(self):
+        font = self.get_font(True)
+        font_height = font.get_height()
+
+        for i in range(0,len(self.text)):
+            text = self.text[i]
+
+            text_surface = font.render(text, True, 'black')
+            text_pos = (self.get_pos() * self.camera.zoom)
+            text_pos.y += font_height * (i - ((len(self.text)-1)/2))
+            text_pos -= (pygame.Vector2(font.size(text))/2)
+            self.screen.blit(text_surface, (text_pos.x, text_pos.y))
+    
     def render(self):
         rect = self.get_rect()
-
-        ts = pygame.Vector2(self.font.size(self.text))
-        text_rect = pygame.Rect(
-            self.get_pos() - (ts/2),
-            ts
-        )
         color = 'black'
 
         if self.is_selected():
@@ -109,20 +159,20 @@ class widget(_widget_base):
 
         pygame.draw.rect(self.screen, 'white', rect)
 
-        self.screen.blit(self.txt_surface, (text_rect.x, text_rect.y))
+        self.render_text()
 
         pygame.draw.rect(self.screen, color, rect,5)
     
     def input_text(self, event):
          if event.type == pygame.KEYDOWN and self.state == self.stateTypes.TEXT:
             if event.key == pygame.K_RETURN:
-                self.text += '\n'
+                self.raw_text += '\n'
             elif event.key == pygame.K_BACKSPACE:
-                self.text = self.text[:-1]
+                self.raw_text = self.raw_text[:-1]
             else:
-                self.text += event.unicode
+                self.raw_text += event.unicode
             # Re-render the text.
-            self.render_text()
+            self.update_text()
 
 class widgetButton(_widget_base):
     def __init__(self, screen, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):

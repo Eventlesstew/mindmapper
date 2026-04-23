@@ -184,7 +184,7 @@ def on_mouseWheel(event):
     else:
         camera.zoom_by(event.precise_y/10)
         for i in F.widget_list:
-            i.render_text()
+            i.update_text()
     updateWidgets()
     
 def _input(event):
