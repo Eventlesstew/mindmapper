@@ -1,9 +1,11 @@
 import pygame
-from elements import widget
-from elements import widgetButton
-from elements import widget_link
-from camera import camClass
+from functions.elements import widget
+from functions.elements import widgetButton
+from functions.elements import widget_link
+from functions.toolbar import toolbarClass
+from functions.camera import camClass
 from config import confClass
+
 class fClass:
     def __init__(self):
         self.widget_list: list[widget] = []
@@ -13,7 +15,9 @@ F = fClass()
 pygame.init()
 
 global camera; camera: camClass = camClass()
-global screen; screen = pygame.display.set_mode(camera.size)
+screen = pygame.display.set_mode(camera.size, pygame.RESIZABLE)
+pygame.display.set_caption('Mindmapper - BS without BS')
+
 global leftClick; leftClick = False
 global leftClick_timestamp; leftClick_timestamp = pygame.time.get_ticks()
 global leftClick_sequence; leftClick_sequence: int = 1
@@ -23,17 +27,18 @@ global rightClick; rightClick = False
 global selected_widget; selected_widget: widget = None
 global selected_button; selected_button: widgetButton = None
 
+toolbar = toolbarClass()
+
 button_list = [
-    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
-    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
-    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
-    widgetButton(screen, camera, widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
-    widgetButton(screen, camera, widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
-    widgetButton(screen, camera, widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0)),
+    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
+    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
+    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
+    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
+    widgetButton(camera, widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
+    widgetButton(camera, widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0)),
 ]
 
 conf = confClass()
-#print(type(screen))
 
 clock = pygame.time.Clock()
 running = True
@@ -42,7 +47,7 @@ dt = 0
 
 def addWidget(pos: pygame.Vector2 = None):
     global camera, selected_widget, selected_button
-    newWidget = widget(screen, camera, pos)
+    newWidget = widget(camera, pos)
     F.widget_list.append(newWidget)
 
     selected_widget = newWidget
@@ -80,7 +85,7 @@ def updateWidgets():
         else:
             v.state = v.stateTypes.IDLE
 
-        v.update()
+        #v.update()
 
 def on_mouseMotion():
     global rightClick, camera, selected_widget, selected_button
@@ -143,10 +148,12 @@ def onRelease_leftClick():
     global leftClick, selected_widget, selected_button
     leftClick = False
     if selected_widget:
-        selected_widget.update()
+        #selected_widget.update()
 
         if isinstance(selected_button, widgetButton):
-            if selected_button.type == widgetButton.buttonTypes.LINK:
+            if selected_button.type == widgetButton.buttonTypes.RESIZE:
+                selected_widget.reset_size()
+            elif selected_button.type == widgetButton.buttonTypes.LINK:
                 widget1 = selected_widget
                 widget2: widget = None
                 for i in F.widget_list:
@@ -157,10 +164,10 @@ def onRelease_leftClick():
                 if not widget2:
                     widget2 = addWidget(None)
                 
-                F.line_list.append(widget_link(screen, camera, widget1, widget2))
+                F.line_list.append(widget_link(camera, widget1, widget2))
                 selected_widget = widget2
                 updateWidgets()
-            elif selected_button.type == widgetButton.buttonTypes.DELETE and selected_button.collideMouse():
+            elif selected_button.type == widgetButton.buttonTypes.DELETE and selected_button.collideMouse(selected_widget):
                 removeWidget(selected_widget)
     
     selected_button = None
@@ -230,6 +237,9 @@ while running:
     if selected_widget:
         for i in button_list:
             i.render(selected_widget)
+    
+    toolbar.render()
+
     pygame.display.flip()
 
     # limits FPS to 60

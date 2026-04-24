@@ -1,19 +1,16 @@
 import pygame
 from enum import Enum
-from camera import camClass
-import math
+from functions.camera import camClass
 
 class _widget_base():
 
     def __init__(
         self, 
-        screen,
         camera: camClass,
         pos: pygame.Vector2, 
         size: pygame.Vector2 = pygame.Vector2(50, 50), 
         min_size: pygame.Vector2 = pygame.Vector2(0,0),
     ):
-        self.screen = screen
         self.camera = camera
         self.size: pygame.Vector2 = size.copy()
         self.min_size: pygame.Vector2 = min_size.copy()
@@ -27,7 +24,7 @@ class _widget_base():
         self.pos = pygame.Vector2(self.pos)
 
         if camMod:
-            return self.pos - self.camera.pos
+            return (self.pos - self.camera.pos) * self.camera.zoom
         else:
             return self.pos
 
@@ -37,7 +34,7 @@ class _widget_base():
     def move_by(self, pos_mod: pygame.Vector2):
         self.pos += pos_mod 
     
-    def update(self):
+    def reset_size(self):
         self.size = pygame.Vector2(self.get_rect(False, False).size)
     
     def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
@@ -48,7 +45,6 @@ class _widget_base():
             max(self.min_size.y, self.size.y)+(padding*2)
         )
         if camMod:
-            p *= self.camera.zoom
             s *= self.camera.zoom
               
         ret = pygame.Rect((p - (s/2)),s)
@@ -63,8 +59,8 @@ class _widget_base():
         return self._rect_collideMouse(rect)
 
 class widget(_widget_base):
-    def __init__(self, screen, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = pygame.Vector2(100, 75)):
-        super().__init__(screen, camera, pos, size, size)
+    def __init__(self, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = pygame.Vector2(300, 200)):
+        super().__init__(camera, pos, size, size)
         self.selected: bool = False
         self.state: int = 0
         self.raw_text: str = 'Hello, World!'
@@ -76,9 +72,6 @@ class widget(_widget_base):
         IDLE = 0,
         SELECTED = 1,
         TEXT = 2,
-
-    def update(self):
-        super().update()
     
     def is_selected(self):
         return self.state != self.stateTypes.IDLE
@@ -100,40 +93,52 @@ class widget(_widget_base):
     def update_text(self):
         font = self.get_font(False)
         text_bounds = self.get_rect(False, -self.FONT_OFFSET)
-        
-        result_text = [self.raw_text]
         self.text = [self.raw_text]
-
-        # THIS NEEDS A FULL REDO
         loop = True
+
         while loop:
             loop = False
-            for text_i in range(0, len(result_text)):
-                text = result_text[text_i]
-                text_rect_size = pygame.Vector2(font.size(text))
+            chosen_break = None
 
-                chosen_break = None
+            for text_i in range(0, len(self.text)):
+                text = self.text[text_i]
                 for i in range(0,len(text))[::-1]:
                     t = text[i]
+                    valid = False
                     if t == '\n':
-                        chosen_break = i
-                    elif t == ' ' and text_rect_size.x > pygame.Vector2(text_bounds.size).x:
-                        chosen_break = i
-                        
-                    if chosen_break:
-                        break
-                
-                if chosen_break:
-                    if text_i+1 >= len(result_text):
-                        result_text.append(text[chosen_break+1:])
+                        valid = True
                     else:
-                        result_text[text_i+1] = text[chosen_break+1:] + result_text[text_i+1]
-                    result_text[text_i] = text[0:chosen_break]
-                    loop = True
-        
-        self.text = result_text
+                        text_rect_size = pygame.Vector2(font.size(text))
+                        wrap: bool = text_rect_size.x > pygame.Vector2(text_bounds.size).x
+                        if t == ' ' and (i == 0 or wrap):
+                            valid = True
+                    
+                    if valid:
+                        chosen_break = {
+                            'index':i,
+                            'line':text_i,
+                        }
+                        break
+                if chosen_break:
+                    break
+
+            if chosen_break:
+                index = chosen_break['index']
+                line = chosen_break['line']
+
+                if index != 0:
+                    if line+1 >= len(self.text):
+                        self.text.append(self.text[line][index:])
+                    else:
+                        self.text[line+1] = self.text[line][index:] + self.text[line+1]
+                    self.text[line] = text[0:index]
+                else:
+                    self.text[line] = text[1:]
+                loop = True
 
     def render_text(self):
+        screen = pygame.display.get_surface()
+
         font = self.get_font(True)
         font_height = font.get_height()
 
@@ -141,23 +146,21 @@ class widget(_widget_base):
             text = self.text[i]
 
             text_surface = font.render(text, True, 'black')
-            text_pos = (self.get_pos() * self.camera.zoom)
+            text_pos = (self.get_pos())
             text_pos.y += font_height * (i - ((len(self.text)-1)/2))
             text_pos -= (pygame.Vector2(font.size(text))/2)
-            self.screen.blit(text_surface, (text_pos.x, text_pos.y))
+            screen.blit(text_surface, (text_pos.x, text_pos.y))
     
     def render(self):
-        rect = self.get_rect()
+        screen = pygame.display.get_surface()
         color = 'black'
 
         if self.state == self.stateTypes.TEXT:
             color = 'red'
 
-        pygame.draw.rect(self.screen, 'white', rect)
-
+        pygame.draw.rect(screen, color, self.get_rect(padding=5))
+        pygame.draw.rect(screen, 'white', self.get_rect(padding=-5))
         self.render_text()
-
-        pygame.draw.rect(self.screen, color, rect,5)
     
     def input_text(self, event):
          if event.type == pygame.KEYDOWN and self.state == self.stateTypes.TEXT:
@@ -171,8 +174,8 @@ class widget(_widget_base):
             self.update_text()
 
 class widgetButton(_widget_base):
-    def __init__(self, screen, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):
-        super().__init__(screen, camera, pygame.Vector2(0,0), pygame.Vector2(20,20))
+    def __init__(self, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):
+        super().__init__(camera, pygame.Vector2(0,0), pygame.Vector2(20,20))
         self.type: int = type
         self.anchor: pygame.Vector2 = anchor
         self.offset: float = offset
@@ -209,17 +212,13 @@ class widgetButton(_widget_base):
     def collideMouse(self, parent: widget, padding: float = 0) -> bool:
         rect = self.get_rect(parent=parent, padding=padding)
         return self._rect_collideMouse(rect)
-    
-    def update(self):
-
-        return self.pos
 
     def render(self, parent: widget):
-        pygame.draw.rect(self.screen, 'red', self.get_rect(parent))
+        screen = pygame.display.get_surface()
+        pygame.draw.rect(screen, 'red', self.get_rect(parent))
         
 class widget_link:
-    def __init__(self, screen, camera: camClass, widget1: widget, widget2: widget, width: float = 5):
-        self.screen = screen
+    def __init__(self, camera: camClass, widget1: widget, widget2: widget, width: float = 5):
         self.camera = camera
         self.widget1 = widget1
         self.widget2 = widget2
@@ -229,4 +228,5 @@ class widget_link:
         pass
     
     def render(self):
-        pygame.draw.line(self.screen, 'black', self.widget1.get_pos(), self.widget2.get_pos(), 5)
+        screen = pygame.display.get_surface()
+        pygame.draw.line(screen, 'black', self.widget1.get_pos(), self.widget2.get_pos(), 5)
