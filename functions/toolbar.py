@@ -18,9 +18,7 @@ class toolbarClass:
         screen = pygame.display.get_surface()
         font = pygame.font.Font(None, round(24))
 
-        for i in range(0,len(self.buttons)):
-            b = self.buttons[i]
-
+        for i, b in enumerate(self.buttons):
             rect = pygame.Rect(
                 ((100 + self.spacing) * i) + self.spacing,
                 self.spacing,

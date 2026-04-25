@@ -100,10 +100,8 @@ class widget(_widget_base):
             loop = False
             chosen_break = None
 
-            for text_i in range(0, len(self.text)):
-                text = self.text[text_i]
-                for i in range(0,len(text))[::-1]:
-                    t = text[i]
+            for text_i, text in enumerate(self.text):
+                for i, t in enumerate(text[::-1]):
                     valid = False
                     if t == '\n':
                         valid = True
@@ -142,9 +140,7 @@ class widget(_widget_base):
         font = self.get_font(True)
         font_height = font.get_height()
 
-        for i in range(0,len(self.text)):
-            text = self.text[i]
-
+        for i, text in enumerate(self.text):
             text_surface = font.render(text, True, 'black')
             text_pos = (self.get_pos())
             text_pos.y += font_height * (i - ((len(self.text)-1)/2))

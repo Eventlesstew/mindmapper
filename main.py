@@ -57,28 +57,22 @@ def addWidget(pos: pygame.Vector2 = None):
 
 def removeWidget(w: widget):
     global selected_widget, selected_button
-    for i in range(0, len(F.widget_list)):
-        v = F.widget_list[i]
-        if v == selected_widget:
-            selected_widget = None
-            selected_button = None
-        if v == w:
-            F.widget_list.pop(i)
-            break
+
+    def _widget_filter(v: widget):
+        return v != w
+    def _line_filter(v: widget_link):
+        return not(v.widget1 == w or v.widget2 == w)
+
+    print(F.widget_list)
+    if w == selected_widget:
+        selected_widget = None
+        selected_button = None
     
-    # TODO - Recode this to work better.
-    loop = True
-    while loop:
-        loop = False
-        for i in range(0, len(F.line_list)):
-            if F.line_list[i].widget1 == w or F.line_list[i].widget2 == w:
-                F.line_list.pop(i)
-                loop = True
-                break
+    F.widget_list = list(filter(_widget_filter,F.widget_list))
+    F.line_list = list(filter(_line_filter,F.line_list))
 
 def updateWidgets():
-    for i in range(0, len(F.widget_list)):
-        v = F.widget_list[i]
+    for _, v in enumerate(F.widget_list):
         if v == selected_widget:
             if v.state == v.stateTypes.IDLE:
                 v.state = v.stateTypes.SELECTED
@@ -125,9 +119,7 @@ def on_leftClick():
                     break
     else:
         selected_widget = None
-    
-        for i in range(0, len(F.widget_list))[::-1]:
-            v = F.widget_list[i]
+        for _, v in enumerate(F.widget_list[::-1]):
             if v.collideMouse():
                 selected_widget = v
                 selected_button = v
