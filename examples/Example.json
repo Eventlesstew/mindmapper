@@ -1,0 +1,1 @@
+{"widgets": [{"x": 242.0, "y": 479.0, "width": 300, "height": 200, "text": ""}, {"x": 1013.0, "y": 585.0, "width": 300, "height": 200, "text": ""}, {"x": 1145.0, "y": 214.0, "width": 300, "height": 200, "text": ""}, {"x": 791.0, "y": 147.0, "width": 300, "height": 200, "text": "Hello World!"}], "links": [{"widget1": 0, "widget2": 3}, {"widget1": 1, "widget2": 2}]}

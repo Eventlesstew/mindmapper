@@ -59,15 +59,21 @@ class _widget_base():
         return self._rect_collideMouse(rect)
 
 class widget(_widget_base):
-    def __init__(self, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = pygame.Vector2(300, 200)):
-        super().__init__(camera, pos, size, size)
+    FONT_SIZE: int = 24
+    FONT_OFFSET: int = 20
+    MIN_SIZE = pygame.Vector2(100, 75)
+    def __init__(self, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = None, text: str = ''):
+        if size:
+            pass
+        else:
+            size = self.MIN_SIZE
+
+        super().__init__(camera, pos, size, self.MIN_SIZE)
         self.selected: bool = False
         self.state: int = 0
-        self.raw_text: str = 'Hello, World!'
+        self.raw_text: str = text
         self.update_text()
-
-    FONT_SIZE: int = 32
-    FONT_OFFSET: int = 20
+    
     class stateTypes(Enum):
         IDLE = 0,
         SELECTED = 1,
@@ -76,6 +82,10 @@ class widget(_widget_base):
     def is_selected(self):
         return self.state != self.stateTypes.IDLE
     
+    def resize_to(self, size_mod: pygame.Vector2):
+        self.size = size_mod
+        self.update_text()
+
     def resize_by(self, size_mod: pygame.Vector2):
         self.size += size_mod
         self.update_text()
@@ -102,6 +112,7 @@ class widget(_widget_base):
 
             for text_i, text in enumerate(self.text):
                 for i, t in enumerate(text[::-1]):
+                    i = len(text)-1-i
                     valid = False
                     if t == '\n':
                         valid = True
@@ -133,6 +144,7 @@ class widget(_widget_base):
                 else:
                     self.text[line] = text[1:]
                 loop = True
+            print(self.text)
 
     def render_text(self):
         screen = pygame.display.get_surface()
@@ -147,6 +159,7 @@ class widget(_widget_base):
             text_pos -= (pygame.Vector2(font.size(text))/2)
             screen.blit(text_surface, (text_pos.x, text_pos.y))
     
+    OUTLINE_SIZE = 5
     def render(self):
         screen = pygame.display.get_surface()
         color = 'black'
@@ -154,8 +167,8 @@ class widget(_widget_base):
         if self.state == self.stateTypes.TEXT:
             color = 'red'
 
-        pygame.draw.rect(screen, color, self.get_rect(padding=5))
-        pygame.draw.rect(screen, 'white', self.get_rect(padding=-5))
+        pygame.draw.rect(screen, color, self.get_rect(padding=self.OUTLINE_SIZE/2))
+        pygame.draw.rect(screen, 'white', self.get_rect(padding=self.OUTLINE_SIZE/-2))
         self.render_text()
     
     def input_text(self, event):
@@ -168,6 +181,10 @@ class widget(_widget_base):
                 self.raw_text += event.unicode
             # Re-render the text.
             self.update_text()
+    
+    def set_text(self, new_text: str):
+        self.raw_text = new_text
+        self.update_text()
 
 class widgetButton(_widget_base):
     def __init__(self, camera:camClass, type: int, anchor: pygame.Vector2,offset:float=0.0):

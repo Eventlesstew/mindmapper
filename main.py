@@ -3,13 +3,121 @@ from functions.elements import widget
 from functions.elements import widgetButton
 from functions.elements import widget_link
 from functions.toolbar import toolbarClass
+from functions.toolbar import toolbarButton
 from functions.camera import camClass
 from config import confClass
 
+from tkinter import filedialog
+import json
+
+## TODO
+# Move the fileClass to a new file
+# Make it so you can add images and they are included in the save.
+# Allow saving of config options.
 class fClass:
+    FILETYPES = [
+        ('Mindmap File','*.mindmap'),
+        ('JSON File','*.json')
+    ]
     def __init__(self):
         self.widget_list: list[widget] = []
         self.line_list: list[widget_link] = []
+        self.file_path: str = None
+    
+    def _save_file(self, path: str):
+        if not path:
+            path = filedialog.asksaveasfilename(filetypes=self.FILETYPES,defaultextension=self.FILETYPES)
+        
+        file = {
+            'widgets':[],
+            'links':[]
+        }
+        for _,v in enumerate(self.widget_list):
+            widget_json = {
+                'x':v.get_pos(False).x,
+                'y':v.get_pos(False).y,
+                'width':v.get_rect(False).w,
+                'height':v.get_rect(False).h,
+                'text':v.raw_text,
+            }
+            file['widgets'].append(widget_json)
+        
+        for _,v in enumerate(self.line_list):
+            index1:int = -1
+            index2:int = -1
+            for i,w in enumerate(self.widget_list):
+                if v.widget1 == w:
+                    index1 = i
+                if v.widget2 == w:
+                    index2 = i
+                if index1 > -1 and index2 > -1:
+                    break
+            
+            line_json = {
+                'widget1':index1,
+                'widget2':index2
+            }
+            file['links'].append(line_json)
+        
+        with open(path, 'w') as f:
+            f.write(json.dumps(file))
+
+    def _load_file(self, path: str):
+        filetypes = [('JSON File','*.json')]
+
+        if not path:
+            path = filedialog.askopenfilename(
+                initialdir=F.file_path,
+                filetypes=filetypes,
+                defaultextension=filetypes
+            )
+        
+        self.widget_list = []
+        self.line_list = []
+        file = {}
+        with open(path, 'r') as f:
+            file = json.loads(f.read())
+
+        global camera
+        for _,v in enumerate(file['widgets']):
+            w = widget(
+                camera,
+                pygame.Vector2(v['x'],v['y']),
+                pygame.Vector2(v['width'],v['height']),
+                v['text']
+            )
+
+            self.widget_list.append(w)
+        
+        for _,v in enumerate(file['links']):
+            widget1 = None
+            widget2 = None
+
+            for i,w in enumerate(self.widget_list):
+                if i == v['widget1']:
+                    widget1 = w
+                if i == v['widget2']:
+                    widget2 = w
+                if widget1 and widget2:
+                    break
+            
+            if widget1 and widget2:
+                l = widget_link(camera, widget1, widget2)
+            else:
+                print("ERROR")
+            self.line_list.append(l)
+
+            
+
+    def save(self):
+        self._save_file(self.file_path)
+
+    def save_as(self):
+        self._save_file(None)
+    
+    def load(self):
+        self._load_file(None)
+
 F = fClass()
 
 pygame.init()
@@ -45,14 +153,15 @@ running = True
 
 dt = 0
 
-def addWidget(pos: pygame.Vector2 = None):
+def addWidget(pos: pygame.Vector2 = None, select: bool = True):
     global camera, selected_widget, selected_button
     newWidget = widget(camera, pos)
     F.widget_list.append(newWidget)
 
-    selected_widget = newWidget
-    selected_button = newWidget
-    updateWidgets()
+    if select:
+        selected_widget = newWidget
+        selected_button = newWidget
+        updateWidgets()
     return newWidget
 
 def removeWidget(w: widget):
@@ -92,6 +201,39 @@ def on_mouseMotion():
             if selected_button.type == widgetButton.buttonTypes.RESIZE:
                 selected_widget.resize_by(pygame.Vector2(pygame.mouse.get_rel()) * 2 / camera.zoom)
 
+def interact():
+    global selected_widget, selected_button
+
+    selected_button = None
+
+    for b in toolbar.buttons:
+        if b.collideMouse():
+            selected_button = b
+    
+    if not selected_button:
+        if selected_widget:
+            for b in button_list:
+                if b.collideMouse(selected_widget):
+                    selected_button = b
+                    break
+            
+            if not selected_button:
+                if selected_widget.collideMouse():
+                    selected_button = selected_widget
+                else:
+                    selected_widget = None
+        
+        if not selected_widget:
+            for i, v in enumerate(F.widget_list[::-1]):
+                i = len(F.widget_list)-1-i
+                if v.collideMouse():
+                    selected_widget = v
+                    selected_button = v
+                    F.widget_list.append(F.widget_list.pop(i))
+                    break
+    updateWidgets()
+
+
 def on_leftClick():
     global leftClick, leftClick_timestamp, leftClick_sequence, selected_widget, selected_button
     leftClick = True
@@ -105,62 +247,48 @@ def on_leftClick():
         leftClick_sequence = 1
     double_click = leftClick_sequence == 2
 
-    if selected_widget and selected_widget.collideMouse(30):
-        selected_button = None
-        
-        for b in button_list + [selected_widget]:
-            if isinstance(b, widgetButton):
-                if b.collideMouse(selected_widget):
-                    selected_button = b
-                    break
-            else:
-                if b.collideMouse():
-                    selected_button = b
-                    break
-    else:
-        selected_widget = None
-        for _, v in enumerate(F.widget_list[::-1]):
-            if v.collideMouse():
-                selected_widget = v
-                selected_button = v
-                break
+    interact()
     
     if double_click:
         if selected_widget:
             selected_widget.state = widget.stateTypes.TEXT
-            # Code here should be for text input.
         else:
             selected_widget = addWidget()
             selected_button = selected_widget
     
     leftClick_timestamp = timestamp
-    updateWidgets()
 
 def onRelease_leftClick():
     global leftClick, selected_widget, selected_button
     leftClick = False
-    if selected_widget:
-        #selected_widget.update()
 
-        if isinstance(selected_button, widgetButton):
-            if selected_button.type == widgetButton.buttonTypes.RESIZE:
-                selected_widget.reset_size()
-            elif selected_button.type == widgetButton.buttonTypes.LINK:
-                widget1 = selected_widget
-                widget2: widget = None
-                for i in F.widget_list:
-                    if i != selected_widget and i.collideMouse():
-                        widget2 = i
-                        break
-                
-                if not widget2:
-                    widget2 = addWidget(None)
-                
-                F.line_list.append(widget_link(camera, widget1, widget2))
-                selected_widget = widget2
-                updateWidgets()
-            elif selected_button.type == widgetButton.buttonTypes.DELETE and selected_button.collideMouse(selected_widget):
-                removeWidget(selected_widget)
+    if selected_button:
+        if isinstance(selected_button, toolbarButton):
+            if selected_button.type == 'file':
+                F.save()
+            elif selected_button.type == 'edit':
+                F.load()
+        elif selected_widget:
+            if isinstance(selected_button, widgetButton):
+                if selected_button.type == widgetButton.buttonTypes.RESIZE:
+                    selected_widget.reset_size()
+                elif selected_button.type == widgetButton.buttonTypes.LINK:
+                    widget1 = selected_widget
+                    widget2: widget = None
+                    for i in F.widget_list:
+                        if i != selected_widget and i.collideMouse():
+                            widget2 = i
+                            break
+                    
+                    if not widget2:
+                        widget2 = addWidget()
+                    
+                    F.line_list.append(widget_link(camera, widget1, widget2))
+                    selected_widget = widget2
+                    updateWidgets()
+                elif selected_button.type == widgetButton.buttonTypes.DELETE:
+                    if selected_button.collideMouse(selected_widget):
+                        removeWidget(selected_widget)
     
     selected_button = None
 
