@@ -149,7 +149,7 @@ button_list = [
 conf = confClass()
 
 clock = pygame.time.Clock()
-running = True
+global running; running = True
 
 dt = 0
 
@@ -336,6 +336,8 @@ def _input(event):
 
     if event.type == pygame.FINGERMOTION:
         print(pygame.Vector2(event.dx,event.dy))
+
+
 
 while running:
     for event in pygame.event.get():
