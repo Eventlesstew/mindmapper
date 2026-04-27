@@ -76,10 +76,8 @@ class fileClass:
         with open(path, 'r') as f:
             file = json.loads(f.read())
 
-        global camera
         for _,v in enumerate(file['widgets']):
             w = widget(
-                camera,
                 pygame.Vector2(v['x'],v['y']),
                 pygame.Vector2(v['width'],v['height']),
                 v['text']
@@ -100,7 +98,7 @@ class fileClass:
                     break
             
             if widget1 and widget2:
-                l = widget_link(camera, widget1, widget2)
+                l = widget_link(widget1, widget2)
             else:
                 print("ERROR")
             self.line_list.append(l)

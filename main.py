@@ -17,7 +17,7 @@ F = fileClass()
 
 pygame.init()
 
-global camera; camera: camClass = camClass()
+camera = camClass.get_camera()
 screen = pygame.display.set_mode(camera.size, pygame.RESIZABLE)
 pygame.display.set_caption('Mindmapper - BS without BS')
 
@@ -33,12 +33,12 @@ global selected_button; selected_button: widgetButton = None
 toolbar = toolbarClass()
 
 button_list = [
-    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
-    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
-    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
-    widgetButton(camera, widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
-    widgetButton(camera, widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
-    widgetButton(camera, widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0)),
+    widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
+    widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
+    widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
+    widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
+    widgetButton(widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
+    widgetButton(widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0),0,0.5),
 ]
 
 conf = confClass()
@@ -49,8 +49,8 @@ global running; running = True
 dt = 0
 
 def addWidget(pos: pygame.Vector2 = None, select: bool = True):
-    global camera, selected_element, selected_button
-    newWidget = widget(camera, pos)
+    global selected_element, selected_button
+    newWidget = widget(pos)
     F.widget_list.append(newWidget)
 
     if select:
@@ -65,7 +65,7 @@ def removeWidget(w: widget):
     def _widget_filter(v: widget):
         return v != w
     def _line_filter(v: widget_link):
-        return not(v.widget1 == w or v.widget2 == w)
+        return not(v == w or v.widget1 == w or v.widget2 == w)
 
     if w == selected_element:
         selected_element = None
@@ -85,7 +85,8 @@ def updateWidgets():
         #v.update()
 
 def on_mouseMotion():
-    global rightClick, camera, selected_element, selected_button
+    global rightClick, selected_element, selected_button
+    camera = camClass.get_camera()
     if rightClick:
         camera.move_by(pygame.Vector2(pygame.mouse.get_rel()))
     elif isinstance(selected_element, widget):
@@ -184,7 +185,7 @@ def onRelease_leftClick():
                     if not widget2:
                         widget2 = addWidget()
                     
-                    F.line_list.append(widget_link(camera, widget1, widget2))
+                    F.line_list.append(widget_link(widget1, widget2))
                     selected_element = widget2
                     updateWidgets()
                 elif selected_button.type == widgetButton.buttonTypes.DELETE:
@@ -201,7 +202,7 @@ def onRelease_rightClick():
     global rightClick; rightClick = False
 
 def on_mouseWheel(event):
-    global camera
+    camera = camClass.get_camera()
     if conf.trackpad:
         movement: pygame.Vector2 = pygame.Vector2(event.precise_x, event.precise_y) * conf.trackpad_sensitivity
         if conf.invert_trackpad_x:
@@ -210,6 +211,7 @@ def on_mouseWheel(event):
             movement.y *= -1
         camera.move_by(movement)
     else:
+        ## TODO - Rework Camera zooming to be more consistent
         camera.zoom_by(event.precise_y/10)
         for i in F.widget_list:
             i.update_text()

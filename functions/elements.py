@@ -2,7 +2,7 @@ import pygame
 from enum import Enum
 from functions.camera import camClass
 
-class _widget_base():
+class widget_base():
     class stateTypes(Enum):
         IDLE = 0,
         SELECTED = 1,
@@ -10,12 +10,10 @@ class _widget_base():
     
     def __init__(
         self, 
-        camera: camClass,
         pos: pygame.Vector2, 
         size: pygame.Vector2 = pygame.Vector2(50, 50), 
         min_size: pygame.Vector2 = pygame.Vector2(0,0),
     ):
-        self.camera = camera
         self.size: pygame.Vector2 = size.copy()
         self.min_size: pygame.Vector2 = min_size.copy()
 
@@ -28,12 +26,14 @@ class _widget_base():
         self.pos = pygame.Vector2(self.pos)
 
         if camMod:
-            return (self.pos - self.camera.pos) * self.camera.zoom
+            camera = camClass.get_camera()
+            return (self.pos - camera.pos) * camera.zoom
         else:
             return self.pos
 
     def get_mousePos(self) -> pygame.Vector2:
-        return (pygame.Vector2(pygame.mouse.get_pos()) / self.camera.zoom) + self.camera.pos
+        camera = camClass.get_camera()
+        return (pygame.Vector2(pygame.mouse.get_pos()) / camera.zoom) + camera.pos
 
     def move_by(self, pos_mod: pygame.Vector2):
         self.pos += pos_mod 
@@ -49,7 +49,8 @@ class _widget_base():
             max(self.min_size.y, self.size.y)+(padding*2)
         )
         if camMod:
-            s *= self.camera.zoom
+            camera = camClass.get_camera()
+            s *= camera.zoom
               
         ret = pygame.Rect((p - (s/2)),s)
         return ret
@@ -62,19 +63,19 @@ class _widget_base():
         
         return self._rect_collideMouse(rect)
 
-class widget(_widget_base):
+class widget(widget_base):
     FONT_SIZE: int = 24
     FONT_OFFSET: int = 20
     MIN_SIZE = pygame.Vector2(100, 75)
     OUTLINE_SIZE = 5
 
-    def __init__(self, camera: camClass, pos: pygame.Vector2, size: pygame.Vector2 = None, text: str = ''):
+    def __init__(self, pos: pygame.Vector2, size: pygame.Vector2 = None, text: str = ''):
         if size:
             pass
         else:
             size = self.MIN_SIZE
 
-        super().__init__(camera, pos, size, self.MIN_SIZE)
+        super().__init__(pos, size, self.MIN_SIZE)
         self.selected: bool = False
         self.state: int = 0
         self.raw_text: str = text
@@ -97,7 +98,8 @@ class widget(_widget_base):
     def get_font(self, camMod: bool = True) -> pygame.font.Font:
         size = self.FONT_SIZE
         if camMod:
-            size *= self.camera.zoom
+            camera = camClass.get_camera()
+            size *= camera.zoom
         
         return pygame.font.Font(None, round(size))
 
@@ -185,9 +187,9 @@ class widget(_widget_base):
         self.raw_text = new_text
         self.update_text()
         
+# TODO - Make this inherited from widget base.
 class widget_link:
-    def __init__(self, camera: camClass, widget1: widget, widget2: widget, width: float = 5):
-        self.camera = camera
+    def __init__(self, widget1: widget, widget2: widget, width: float = 5):
         self.widget1 = widget1
         self.widget2 = widget2
         self.width = width
@@ -203,10 +205,17 @@ class widget_link:
         pos1 = self.widget1.get_pos()
         pos2 = self.widget2.get_pos()
 
-        # TODO - Make a line that doesn't go inside the widgets.
         if not inside_widgets:
-            self.widget1.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos1, pos2)
-            self.widget2.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos1, pos2)
+            print("LINES")
+            clip1 = self.widget1.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos1, pos2)
+            if pos1 == pygame.Vector2(clip1[0]):
+                pos1 = pygame.Vector2(clip1[1])
+                print(pos1)
+            
+            clip2 = self.widget2.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos2, pos1)
+            if pos2 == pygame.Vector2(clip2[0]):
+                pos2 = pygame.Vector2(clip2[1])
+                print(pos2)
         return [pos1, pos2]
     
     def collideMouse(self):
@@ -218,8 +227,22 @@ class widget_link:
         linecheck: float = (((pos2.x-pos1.x)*(posm.x-pos1.x))+((pos2.y-pos1.y)*(posm.y-pos1.y)))/(((pos2.x-pos1.x)**2)+((pos2.y-pos1.y)**2))
 
         if 0.0 <= linecheck and linecheck <= 1.0:
-            distance: float = abs((pos2.y-pos1.y)*(posm.x-pos1.x)-(pos2.x-pos1.x)*(posm.y-pos1.y))/(((pos2.x-pos1.x)**2)+((pos2.y-pos1.y)**2)**0.5)
-            distance *= self.camera.zoom * widget.OUTLINE_SIZE * 5
+            distance: float = abs(
+                    (
+                        (pos2.y-pos1.y)*(posm.x-pos1.x)
+                    )-(
+                        (pos2.x-pos1.x)*(posm.y-pos1.y)
+                    )
+                )/(
+                    ((
+                        (pos2.x-pos1.x)**2
+                    )+(
+                        (pos2.y-pos1.y)**2
+                    ))**0.5
+                )
+
+            camera = camClass.get_camera()
+            distance /= (widget.OUTLINE_SIZE * 2 * camera.zoom)
 
             if distance < 1.0:
                 return True
@@ -228,9 +251,10 @@ class widget_link:
     
     def render(self, selected):
         screen = pygame.display.get_surface()
+        camera = camClass.get_camera()
         color = 'black'
         if self == selected:
             color = 'red'
 
-        line = self.get_line(False)
-        pygame.draw.line(screen, color, line[0], line[1], round(widget.OUTLINE_SIZE*self.camera.zoom))
+        line = self.get_line()
+        pygame.draw.line(screen, color, line[0], line[1], round(widget.OUTLINE_SIZE*camera.zoom))
