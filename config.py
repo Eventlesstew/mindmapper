@@ -1,4 +1,5 @@
-from tkinter import filedialog
+from tkinter.filedialog import askopenfilename 
+from tkinter.filedialog import asksaveasfilename 
 import pygame
 import json
 from functions.elements import widget
@@ -24,7 +25,7 @@ class fileClass:
     
     def _save_file(self, path: str):
         if not path:
-            path = filedialog.asksaveasfilename(filetypes=self.FILETYPES,defaultextension=self.FILETYPES)
+            path = asksaveasfilename(filetypes=self.FILETYPES,defaultextension=self.FILETYPES)
         
         file = {
             'widgets':[],
@@ -64,7 +65,7 @@ class fileClass:
         filetypes = [('JSON File','*.json')]
 
         if not path:
-            path = filedialog.askopenfilename(
+            path = askopenfilename(
                 initialdir=self.file_path,
                 filetypes=filetypes,
                 defaultextension=filetypes
