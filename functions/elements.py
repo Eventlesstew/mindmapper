@@ -206,16 +206,13 @@ class widget_link:
         pos2 = self.widget2.get_pos()
 
         if not inside_widgets:
-            print("LINES")
             clip1 = self.widget1.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos1, pos2)
             if pos1 == pygame.Vector2(clip1[0]):
                 pos1 = pygame.Vector2(clip1[1])
-                print(pos1)
             
             clip2 = self.widget2.get_rect(widget.OUTLINE_SIZE/-2).clipline(pos2, pos1)
             if pos2 == pygame.Vector2(clip2[0]):
                 pos2 = pygame.Vector2(clip2[1])
-                print(pos2)
         return [pos1, pos2]
     
     def collideMouse(self):

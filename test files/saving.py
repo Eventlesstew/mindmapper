@@ -1,10 +1,13 @@
-from tkinter.filedialog import askopenfilename 
-from tkinter.filedialog import asksaveasfilename 
-## OR  from tkinter.filedialog import *
+import subprocess
+import sys
+import pygame
 
-#from tkinter import *
+pygame.init()
+output = subprocess.run(
+    [sys.executable, 'test files/saving2.py'],
+    capture_output=True,
+    text=True,
+)
+result = output.stdout
 
-#root = Tk()
-foo = asksaveasfilename()
-#root.destroy()
-print(foo)
+print(result)

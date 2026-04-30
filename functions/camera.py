@@ -23,7 +23,6 @@ class camClass:
         r = self.get_rect()
         self.zoom += zoom_mod
         self.pos = pygame.Vector2(r.center) - (pygame.Vector2(self.get_rect().size) / 2)
-        print(self.get_rect())
 
     def get_camera():
         global camera
