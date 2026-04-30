@@ -6,13 +6,21 @@ from functions.elements import widget
 from functions.elements import widget_link
 from enum import Enum
 
-class confClass:
+class C:
     def __init__(self):
         self.double_click_time: float = 200.0
         self.trackpad: bool = False
         self.invert_trackpad_x: bool = True
         self.invert_trackpad_y: bool = False
         self.trackpad_sensitivity: float = 10
+
+        self.font = 'assets/fonts/calibri-regular.ttf'
+    
+    def get_config():
+        global config
+        return config
+
+global config; config = C()
 
 class fileClass:
     class FILEREQUESTS(Enum):
@@ -128,3 +136,9 @@ class fileClass:
     
     def load(self):
         self._load_file(None)
+    
+    def get_fileManager():
+        global fileManager
+        return fileManager
+
+global fileManager; fileManager = fileClass()

@@ -101,7 +101,7 @@ class widget(widget_base):
             camera = camClass.get_camera()
             size *= camera.zoom
         
-        return pygame.font.Font(None, round(size))
+        return pygame.font.Font('assets/fonts/calibri-regular.ttf', round(size))
 
     def update_text(self):
         font = self.get_font(False)

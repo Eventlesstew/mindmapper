@@ -5,15 +5,13 @@ from functions.ui import widgetButton
 from functions.ui import toolbarClass
 from functions.ui import toolbarButton
 from functions.camera import camClass
-from config import confClass
+from config import C
 from config import fileClass
 
 ## TODO
 # Move the fileClass to a new file
 # Make it so you can add images and they are included in the save.
 # Allow saving of config options.
-
-F = fileClass()
 
 pygame.init()
 
@@ -41,8 +39,6 @@ button_list = [
     widgetButton(widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0),0,0.5),
 ]
 
-conf = confClass()
-
 clock = pygame.time.Clock()
 global running; running = True
 
@@ -50,8 +46,9 @@ dt = 0
 
 def addWidget(pos: pygame.Vector2 = None, select: bool = True):
     global selected_element, selected_button
+    fileManager = fileClass.get_fileManager()
     newWidget = widget(pos)
-    F.widget_list.append(newWidget)
+    fileManager.widget_list.append(newWidget)
 
     if select:
         selected_element = newWidget
@@ -61,7 +58,7 @@ def addWidget(pos: pygame.Vector2 = None, select: bool = True):
 
 def removeWidget(w: widget):
     global selected_element, selected_button
-
+    fileManager = fileClass.get_fileManager()
     def _widget_filter(v: widget):
         return v != w
     def _line_filter(v: widget_link):
@@ -71,11 +68,12 @@ def removeWidget(w: widget):
         selected_element = None
         selected_button = None
     
-    F.widget_list = list(filter(_widget_filter,F.widget_list))
-    F.line_list = list(filter(_line_filter,F.line_list))
+    fileManager.widget_list = list(filter(_widget_filter,fileManager.widget_list))
+    fileManager.line_list = list(filter(_line_filter,fileManager.line_list))
 
 def updateWidgets():
-    for _, v in enumerate(F.widget_list):
+    fileManager = fileClass.get_fileManager()
+    for _, v in enumerate(fileManager.widget_list):
         if v == selected_element:
             if v.state == v.stateTypes.IDLE:
                 v.state = v.stateTypes.SELECTED
@@ -117,18 +115,19 @@ def interact():
                     selected_button = selected_element
                 else:
                     selected_element = None
-        
+                    
+        fileManager = fileClass.get_fileManager()
         if not selected_element:
-            for i, v in enumerate(F.widget_list[::-1]):
-                i = len(F.widget_list)-1-i
+            for i, v in enumerate(fileManager.widget_list[::-1]):
+                i = len(fileManager.widget_list)-1-i
                 if v.collideMouse():
                     selected_element = v
                     selected_button = v
-                    F.widget_list.append(F.widget_list.pop(i))
+                    fileManager.widget_list.append(fileManager.widget_list.pop(i))
                     break
             
         if not selected_element:
-            for i, v in enumerate(F.line_list):
+            for i, v in enumerate(fileManager.line_list):
                 if v.collideMouse():
                     selected_element = v
                     selected_button = v
@@ -138,12 +137,13 @@ def interact():
 
 def on_leftClick():
     global leftClick, leftClick_timestamp, leftClick_sequence, selected_element, selected_button
+    config = C.get_config()
     leftClick = True
 
     pygame.mouse.get_rel()
     timestamp = pygame.time.get_ticks()
 
-    if abs(timestamp - leftClick_timestamp) <= conf.double_click_time:
+    if abs(timestamp - leftClick_timestamp) <= config.double_click_time:
         leftClick_sequence += 1
     else:
         leftClick_sequence = 1
@@ -166,18 +166,16 @@ def onRelease_leftClick():
 
     if selected_button:
         if isinstance(selected_button, toolbarButton):
-            if selected_button.type == 'file':
-                F.save()
-            elif selected_button.type == 'edit':
-                F.load()
+            selected_button.interact()
         elif selected_element:
             if isinstance(selected_button, widgetButton):
                 if selected_button.type == widgetButton.buttonTypes.RESIZE:
                     selected_element.reset_size()
                 elif selected_button.type == widgetButton.buttonTypes.LINK:
+                    fileManager = fileClass.get_fileManager()
                     widget1 = selected_element
                     widget2: widget = None
-                    for i in F.widget_list:
+                    for i in fileManager.widget_list:
                         if i != selected_element and i.collideMouse():
                             widget2 = i
                             break
@@ -185,7 +183,7 @@ def onRelease_leftClick():
                     if not widget2:
                         widget2 = addWidget()
                     
-                    F.line_list.append(widget_link(widget1, widget2))
+                    fileManager.line_list.append(widget_link(widget1, widget2))
                     selected_element = widget2
                     updateWidgets()
                 elif selected_button.type == widgetButton.buttonTypes.DELETE:
@@ -202,18 +200,20 @@ def onRelease_rightClick():
     global rightClick; rightClick = False
 
 def on_mouseWheel(event):
+    config = C.get_config()
     camera = camClass.get_camera()
-    if conf.trackpad:
-        movement: pygame.Vector2 = pygame.Vector2(event.precise_x, event.precise_y) * conf.trackpad_sensitivity
-        if conf.invert_trackpad_x:
+    
+    if config.trackpad:
+        movement: pygame.Vector2 = pygame.Vector2(event.precise_x, event.precise_y) * config.trackpad_sensitivity
+        if config.invert_trackpad_x:
             movement.x *= -1
-        if conf.invert_trackpad_y:
+        if config.invert_trackpad_y:
             movement.y *= -1
         camera.move_by(movement)
     else:
-        ## TODO - Rework Camera zooming to be more consistent
-        camera.zoom_by(event.precise_y/10)
-        for i in F.widget_list:
+        fileManager = fileClass.get_fileManager()
+        camera.zoom_by(event.precise_y)
+        for i in fileManager.widget_list:
             i.update_text()
     updateWidgets()
     
@@ -253,10 +253,11 @@ while running:
         if selected_button.type == widgetButton.buttonTypes.LINK:
             pygame.draw.line(screen, 'red', selected_element.get_pos(), pygame.mouse.get_pos(), 5)
 
-    for i in F.line_list:
+    fileManager = fileClass.get_fileManager()
+    for i in fileManager.line_list:
         i.render(selected_element)
     
-    for i in F.widget_list:
+    for i in fileManager.widget_list:
         i.render()
 
     for i in button_list:

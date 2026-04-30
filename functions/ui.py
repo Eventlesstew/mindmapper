@@ -4,6 +4,8 @@ from functions.elements import widget_base
 from functions.elements import widget
 from functions.elements import widget_link
 from functions.camera import camClass
+from config import fileClass
+from config import C
 
 class toolbarClass:
     def __init__(self):
@@ -12,8 +14,9 @@ class toolbarClass:
 
         self.buttons = [
             toolbarButton(self, 'mindmapper'),
-            toolbarButton(self, 'file'),
-            toolbarButton(self, 'edit'),
+            toolbarButton(self, 'save'),
+            toolbarButton(self, 'saveas'),
+            toolbarButton(self, 'open'),
         ]
 
         for i,v in enumerate(self.buttons):
@@ -22,6 +25,17 @@ class toolbarClass:
     def render(self):
         for _, b in enumerate(self.buttons):
             b.render()
+
+        config = C.get_config()
+        screen = pygame.display.get_surface()
+        camera = camClass.get_camera()
+        
+        font = pygame.font.Font(config.font, round(24))
+
+        text = str(camera.zoom * 100)
+        text_surface = font.render(text, True, 'black')
+        text_pos = pygame.Vector2(screen.get_size()) - (pygame.Vector2(font.size(text)))
+        screen.blit(text_surface, (text_pos, text_pos))
 
 class toolbarButton:
     def __init__(self, parent, type):
@@ -45,10 +59,21 @@ class toolbarButton:
     def collideMouse(self):
         return self.get_rect().collidepoint(pygame.mouse.get_pos())
 
+    def interact(self):
+        fileManager = fileClass.get_fileManager()
+        if self.type == 'save':
+            fileManager.save()
+        elif self.type == 'saveas':
+            fileManager.save_as()
+        elif self.type == 'open':
+            fileManager.load()
+
     def render(self):
+        config = C.get_config()
         screen = pygame.display.get_surface()
         rect = self.get_rect()
-        font = pygame.font.Font(None, round(24))
+        
+        font = pygame.font.Font(config.font, round(24))
 
         text_surface = font.render(self.get_text(), True, 'black')
         text_pos = pygame.Vector2(rect.center) - (pygame.Vector2(font.size(self.get_text()))/2)
