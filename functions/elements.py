@@ -161,15 +161,46 @@ class widget(widget_base):
             text_pos -= (pygame.Vector2(font.size(text))/2)
             screen.blit(text_surface, (text_pos.x, text_pos.y))
     
-    def render(self):
+    RADIUS = 10
+
+    def _render_rect(self, color, outline: float = 0.0):
         screen = pygame.display.get_surface()
+        camera = camClass.get_camera()
+        radius = self.RADIUS * camera.zoom
+        outline_size = outline * camera.zoom
+
+        rect = self.get_rect()
+        rect.x += radius
+        rect.y -= outline_size
+        rect.w -= radius*2
+        rect.h += outline_size*2
+        pygame.draw.rect(screen, color, rect)
+
+        rect = self.get_rect()
+        rect.x -= outline_size
+        rect.y += radius
+        rect.w += outline_size*2
+        rect.h -= radius*2
+        pygame.draw.rect(screen, color, rect)
+
+        rect = self.get_rect()
+        circ_pos = [
+            pygame.Vector2(rect.topleft) + pygame.Vector2(radius,radius),
+            pygame.Vector2(rect.topright) + pygame.Vector2(-radius,radius),
+            pygame.Vector2(rect.bottomleft) + pygame.Vector2(radius,-radius),
+            pygame.Vector2(rect.bottomright) - pygame.Vector2(radius,radius),
+        ]
+        for i in circ_pos:
+            pygame.draw.circle(screen, color, i, radius + outline_size)
+    def render(self):
         color = 'black'
 
         if self.state == self.stateTypes.TEXT:
             color = 'red'
 
-        pygame.draw.rect(screen, color, self.get_rect(padding=self.OUTLINE_SIZE/2))
-        pygame.draw.rect(screen, 'white', self.get_rect(padding=self.OUTLINE_SIZE/-2))
+        self._render_rect(color, self.OUTLINE_SIZE)
+        self._render_rect('white')
+    
         self.render_text()
     
     def input_text(self, event):
