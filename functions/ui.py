@@ -1,6 +1,6 @@
 import pygame
 from enum import Enum
-from functions.elements import widget_base
+from functions.elements import element
 from functions.elements import widget
 from functions.elements import widget_link
 from functions.camera import camClass
@@ -98,7 +98,7 @@ class widgetButton():
         self.offset: float = offset
         self.line_anchor: float = line_anchor
     
-    def get_pos(self, parent: widget_base, camMod: bool = True) -> pygame.Rect:
+    def get_pos(self, parent: element, camMod: bool = True) -> pygame.Rect:
         if isinstance(parent, widget):
             rect = parent.get_rect(camMod=False, padding=self.offset)
             rect_size = pygame.Vector2(rect.size)

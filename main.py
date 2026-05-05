@@ -47,6 +47,10 @@ dt = 0
 def addWidget(pos: pygame.Vector2 = None, select: bool = True):
     global selected_element, selected_button
     fileManager = fileClass.get_fileManager()
+
+    if not pos:
+        camera = camClass.get_camera()
+        pos = camera.get_mouse_pos()
     newWidget = widget(pos)
     fileManager.widget_list.append(newWidget)
 

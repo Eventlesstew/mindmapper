@@ -1,69 +1,18 @@
 import pygame
 from enum import Enum
 from functions.camera import camClass
+from abc import ABC, abstractmethod
 
-class widget_base():
+class element(ABC):
     class stateTypes(Enum):
         IDLE = 0,
         SELECTED = 1,
         TEXT = 2,
-    
-    def __init__(
-        self, 
-        pos: pygame.Vector2, 
-        size: pygame.Vector2 = pygame.Vector2(50, 50), 
-        min_size: pygame.Vector2 = pygame.Vector2(0,0),
-    ):
-        self.size: pygame.Vector2 = size.copy()
-        self.min_size: pygame.Vector2 = min_size.copy()
 
-        if pos:
-            self.pos: pygame.Vector2 = pos
-        else:
-            self.pos = self.get_mousePos()
+    @abstractmethod
+    def collideMouse(self): pass 
 
-    def get_pos(self, camMod: bool = True) -> pygame.Vector2:
-        self.pos = pygame.Vector2(self.pos)
-
-        if camMod:
-            camera = camClass.get_camera()
-            return (self.pos - camera.pos) * camera.zoom
-        else:
-            return self.pos
-
-    def get_mousePos(self) -> pygame.Vector2:
-        camera = camClass.get_camera()
-        return (pygame.Vector2(pygame.mouse.get_pos()) / camera.zoom) + camera.pos
-
-    def move_by(self, pos_mod: pygame.Vector2):
-        self.pos += pos_mod 
-    
-    def reset_size(self):
-        self.size = pygame.Vector2(self.get_rect(False, False).size)
-    
-    def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
-
-        p: pygame.Vector2 = self.get_pos(camMod).copy()
-        s: pygame.Vector2 = pygame.Vector2(
-            max(self.min_size.x, self.size.x)+(padding*2),
-            max(self.min_size.y, self.size.y)+(padding*2)
-        )
-        if camMod:
-            camera = camClass.get_camera()
-            s *= camera.zoom
-              
-        ret = pygame.Rect((p - (s/2)),s)
-        return ret
-
-    def _rect_collideMouse(self, rect:pygame.Rect):
-        return rect.collidepoint(pygame.mouse.get_pos())
-
-    def collideMouse(self, padding: float = 0) -> bool:
-        rect = self.get_rect(padding=padding)
-        
-        return self._rect_collideMouse(rect)
-
-class widget(widget_base):
+class widget(element):
     FONT_SIZE: int = 24
     FONT_OFFSET: int = 20
     MIN_SIZE = pygame.Vector2(100, 75)
@@ -75,15 +24,30 @@ class widget(widget_base):
         else:
             size = self.MIN_SIZE
 
-        super().__init__(pos, size, self.MIN_SIZE)
+        self.size: pygame.Vector2 = size
+        self.pos: pygame.Vector2 = pos
         self.selected: bool = False
         self.state: int = 0
         self.raw_text: str = text
+        self.reset_size()
         self.update_text()
     
     def is_selected(self):
         return self.state != self.stateTypes.IDLE
     
+    def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
+        p: pygame.Vector2 = self.get_pos(camMod).copy()
+        s: pygame.Vector2 = pygame.Vector2(
+            max(self.MIN_SIZE.x, self.size.x)+(padding*2),
+            max(self.MIN_SIZE.y, self.size.y)+(padding*2)
+        )
+        if camMod:
+            camera = camClass.get_camera()
+            s *= camera.zoom
+              
+        ret = pygame.Rect((p - (s/2)),s)
+        return ret
+
     def resize_to(self, size_mod: pygame.Vector2):
         self.size = size_mod
         self.update_text()
@@ -92,9 +56,26 @@ class widget(widget_base):
         self.size += size_mod
         self.update_text()
     
-    def move_by(self, pos_mod: pygame.Vector2):
-        super().move_by(pos_mod)
+    def reset_size(self):
+        self.size = pygame.Vector2(self.get_rect(False, False).size)
     
+    def get_pos(self, camMod: bool = True) -> pygame.Vector2:
+        self.pos = pygame.Vector2(self.pos)
+
+        if camMod:
+            camera = camClass.get_camera()
+            return (self.pos - camera.pos) * camera.zoom
+        else:
+            return self.pos
+
+    def move_by(self, pos_mod: pygame.Vector2):
+        self.pos += pos_mod 
+    
+    def collideMouse(self, padding: float = 0) -> bool:
+        rect = self.get_rect(padding=padding)
+        
+        return rect.collidepoint(pygame.mouse.get_pos())
+
     def get_font(self, camMod: bool = True) -> pygame.font.Font:
         size = self.FONT_SIZE
         if camMod:
@@ -218,8 +199,7 @@ class widget(widget_base):
         self.raw_text = new_text
         self.update_text()
         
-# TODO - Make this inherited from widget base.
-class widget_link:
+class widget_link(element):
     def __init__(self, widget1: widget, widget2: widget, width: float = 5):
         self.widget1 = widget1
         self.widget2 = widget2

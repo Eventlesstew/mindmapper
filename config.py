@@ -93,12 +93,13 @@ class fileClass:
         
         file = {}
         try:
+            ## TODO - Use Addwidget and RemoveWidget when adding and removing widgets.
             with open(path, 'r') as f:
                 file = json.loads(f.read())
 
             self.widget_list = []
             self.line_list = []
-            
+
             for _,v in enumerate(file['widgets']):
                 w = widget(
                     pygame.Vector2(v['x'],v['y']),

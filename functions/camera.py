@@ -14,6 +14,9 @@ class camClass:
             pos_mod.y / self.zoom
         )
     
+    ## TODO - Add a move to function that will move the camera's center to a specific position.
+    # Use this when opening a file to center the camera towards the elements.
+    
     def get_rect(self) -> pygame.Rect:
         return pygame.Rect(
             self.pos,
@@ -21,8 +24,7 @@ class camClass:
         )
     
     def zoom_by(self, zoom_mod: float):
-        oldRect = self.get_rect()
-
+        old_mouse_pos = self.get_mouse_pos()
         self._zoom_index -= zoom_mod
 
         if self._zoom_index <= 0:
@@ -30,13 +32,14 @@ class camClass:
         else:
             self.zoom = 1/(1+self._zoom_index)
 
-        newRect = self.get_rect()
-        self.pos = pygame.Vector2(oldRect.center) - (pygame.Vector2(newRect.size) / 2)
+        self.pos += old_mouse_pos - self.get_mouse_pos()
 
-        ## BUG - There are dissimilarities when zooming in
-        if self.get_rect().center != oldRect.center:
-            print("DISSIMILARITY AT", self.zoom, self.get_rect().center, oldRect.center)
-
+    def get_mouse_pos(self) -> pygame.Vector2:
+        pos: pygame.Vector2 = pygame.Vector2(pygame.mouse.get_pos())
+        pos /= self.zoom
+        pos += self.pos
+        return pos
+    
     def get_camera():
         global camera
         return camera
