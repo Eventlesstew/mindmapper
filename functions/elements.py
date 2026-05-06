@@ -29,17 +29,19 @@ class widget(element):
         self.selected: bool = False
         self.state: int = 0
         self.raw_text: str = text
-        self.reset_size()
+        self.text: list[str] = [text]
         self.update_text()
+        self.reset_size()
     
     def is_selected(self):
         return self.state != self.stateTypes.IDLE
     
     def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
+        min_size = self.get_min_size()
         p: pygame.Vector2 = self.get_pos(camMod).copy()
         s: pygame.Vector2 = pygame.Vector2(
-            max(self.MIN_SIZE.x, self.size.x)+(padding*2),
-            max(self.MIN_SIZE.y, self.size.y)+(padding*2)
+            max(min_size.x, self.size.x)+(padding*2),
+            max(min_size.y, self.size.y)+(padding*2)
         )
         if camMod:
             camera = camClass.get_camera()
@@ -59,6 +61,18 @@ class widget(element):
     def reset_size(self):
         self.size = pygame.Vector2(self.get_rect(False, False).size)
     
+    def get_min_size(self) -> pygame.Vector2:
+        font = self.get_font(True)
+        text_size = pygame.Vector2(
+            self.MIN_SIZE.x,
+            max(self.MIN_SIZE.y, font.get_height() * len(self.text))
+        )
+        
+        for text in self.text:
+            text_size.x = max(text_size.x, pygame.Vector2(font.size(text)).x)
+        
+        return text_size
+
     def get_pos(self, camMod: bool = True) -> pygame.Vector2:
         self.pos = pygame.Vector2(self.pos)
 
@@ -128,6 +142,8 @@ class widget(element):
                 else:
                     self.text[line] = text[1:]
                 loop = True
+        
+        
 
     def render_text(self):
         screen = pygame.display.get_surface()
@@ -135,6 +151,7 @@ class widget(element):
         font = self.get_font(True)
         font_height = font.get_height()
 
+        
         for i, text in enumerate(self.text):
             text_surface = font.render(text, True, 'black')
             text_pos = (self.get_pos())
