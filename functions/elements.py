@@ -100,38 +100,28 @@ class widget(element):
         text = copy.copy(self.raw_text)
         self.text = []
         font = self.get_font(False)
+
+        text_words_string = text.replace("\n", " ")
+        text_words = text_words_string.split(" ")
+        for _, v in enumerate(text_words):
+            self.min_size.x = max(self.min_size.x, font.size(v)[0]+(self.FONT_OFFSET*2))
         rect = self.get_rect(False, -self.FONT_OFFSET)
 
         lineSpacing = -2
-
-        # get the height of the font
         fontHeight = font.size("Tg")[1]
 
-        ## TODO - Make sure this works properly when scaling and reduce lag.
-        for _ in self.raw_text:
-            wrap_point = None
+        lines = text.split("\n")
+        for _, v in enumerate(lines):
+            self.text.append("")
 
-            # determine maximum width of line
-            for i, v in enumerate(text):
-                point = -1
-                if v == "\n":
-                    point = i
-                elif font.size(text[:i])[0] > rect.width:
-                    point = text.rfind(" ", 0, i)
+            words = v.split(" ")
+            for _, w in enumerate(words):
+                if font.size(self.text[-1]+w)[0] > rect.width:
+                    self.text.append(w)
+                else:
+                    self.text[-1] += " " + w
 
-                if point != -1:
-                    wrap_point = point + 1
-                    break
-
-            # if we've wrapped the text, then adjust the wrap to the last word    
-            if wrap_point: 
-                self.text.append(text[:wrap_point-1])
-                text = text[wrap_point:]
-        
-        self.text.append(text)
         self.min_size.y = (len(self.text) * (fontHeight + lineSpacing))+(self.FONT_OFFSET*2)
-        for t in self.text:
-            self.min_size.x = max(self.min_size.x, font.size(t)[0]+(self.FONT_OFFSET*2))
 
     def render_text(self):
         screen = pygame.display.get_surface()
