@@ -136,6 +136,10 @@ def interact():
                     selected_element = v
                     selected_button = v
                     break
+        
+        if selected_element and isinstance(selected_button, widgetButton):
+            if selected_button.type == widgetButton.buttonTypes.RESIZE:
+                selected_element.reset_size()
     updateWidgets()
 
 
@@ -171,28 +175,27 @@ def onRelease_leftClick():
     if selected_button:
         if isinstance(selected_button, toolbarButton):
             selected_button.interact()
-        elif selected_element:
-            if isinstance(selected_button, widgetButton):
-                if selected_button.type == widgetButton.buttonTypes.RESIZE:
-                    selected_element.reset_size()
-                elif selected_button.type == widgetButton.buttonTypes.LINK:
-                    fileManager = fileClass.get_fileManager()
-                    widget1 = selected_element
-                    widget2: widget = None
-                    for i in fileManager.widget_list:
-                        if i != selected_element and i.collideMouse():
-                            widget2 = i
-                            break
-                    
-                    if not widget2:
-                        widget2 = addWidget()
-                    
-                    fileManager.line_list.append(widget_link(widget1, widget2))
-                    selected_element = widget2
-                    updateWidgets()
-                elif selected_button.type == widgetButton.buttonTypes.DELETE:
-                    if selected_button.collideMouse(selected_element):
-                        removeWidget(selected_element)
+        elif selected_element and isinstance(selected_button, widgetButton):
+            if selected_button.type == widgetButton.buttonTypes.RESIZE:
+                selected_element.reset_size()
+            elif selected_button.type == widgetButton.buttonTypes.LINK:
+                fileManager = fileClass.get_fileManager()
+                widget1 = selected_element
+                widget2: widget = None
+                for i in fileManager.widget_list:
+                    if i != selected_element and i.collideMouse():
+                        widget2 = i
+                        break
+                
+                if not widget2:
+                    widget2 = addWidget()
+                
+                fileManager.line_list.append(widget_link(widget1, widget2))
+                selected_element = widget2
+                updateWidgets()
+            elif selected_button.type == widgetButton.buttonTypes.DELETE:
+                if selected_button.collideMouse(selected_element):
+                    removeWidget(selected_element)
     
     selected_button = None
 

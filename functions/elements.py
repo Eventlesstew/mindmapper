@@ -2,6 +2,7 @@ import pygame
 from enum import Enum
 from functions.camera import camClass
 from abc import ABC, abstractmethod
+import copy
 
 class element(ABC):
     class stateTypes(Enum):
@@ -25,6 +26,7 @@ class widget(element):
             size = self.MIN_SIZE
 
         self.size: pygame.Vector2 = size
+        self.min_size: pygame.Vector2 = self.MIN_SIZE.copy()
         self.pos: pygame.Vector2 = pos
         self.selected: bool = False
         self.state: int = 0
@@ -62,16 +64,11 @@ class widget(element):
         self.size = pygame.Vector2(self.get_rect(False, False).size)
     
     def get_min_size(self) -> pygame.Vector2:
-        font = self.get_font(True)
-        text_size = pygame.Vector2(
-            self.MIN_SIZE.x,
-            max(self.MIN_SIZE.y, font.get_height() * len(self.text))
+        result = pygame.Vector2(
+            max(self.MIN_SIZE.x, self.min_size.x),
+            max(self.MIN_SIZE.y, self.min_size.y)
         )
-        
-        for text in self.text:
-            text_size.x = max(text_size.x, pygame.Vector2(font.size(text)).x)
-        
-        return text_size
+        return result
 
     def get_pos(self, camMod: bool = True) -> pygame.Vector2:
         self.pos = pygame.Vector2(self.pos)
@@ -97,60 +94,50 @@ class widget(element):
             size *= camera.zoom
         
         return pygame.font.Font('assets/fonts/calibri-regular.ttf', round(size))
-
+        
     def update_text(self):
+        self.min_size = pygame.Vector2(0,0)
+        text = copy.copy(self.raw_text)
+        self.text = []
         font = self.get_font(False)
-        text_bounds = self.get_rect(False, -self.FONT_OFFSET)
-        self.text = [self.raw_text]
-        loop = True
+        rect = self.get_rect(False, -self.FONT_OFFSET)
 
-        while loop:
-            loop = False
-            chosen_break = None
+        lineSpacing = -2
 
-            for text_i, text in enumerate(self.text):
-                for i, t in enumerate(text[::-1]):
-                    i = len(text)-1-i
-                    valid = False
-                    if t == '\n':
-                        valid = True
-                    else:
-                        text_rect_size = pygame.Vector2(font.size(text))
-                        wrap: bool = text_rect_size.x > pygame.Vector2(text_bounds.size).x
-                        if t == ' ' and (i == 0 or wrap):
-                            valid = True
-                    
-                    if valid:
-                        chosen_break = {
-                            'index':i,
-                            'line':text_i,
-                        }
-                        break
-                if chosen_break:
+        # get the height of the font
+        fontHeight = font.size("Tg")[1]
+
+        ## TODO - Make sure this works properly when scaling and reduce lag.
+        for _ in self.raw_text:
+            wrap_point = None
+
+            # determine maximum width of line
+            for i, v in enumerate(text):
+                point = -1
+                if v == "\n":
+                    point = i
+                elif font.size(text[:i])[0] > rect.width:
+                    point = text.rfind(" ", 0, i)
+
+                if point != -1:
+                    wrap_point = point + 1
                     break
 
-            if chosen_break:
-                index = chosen_break['index']
-                line = chosen_break['line']
-
-                if index != 0:
-                    if line+1 >= len(self.text):
-                        self.text.append(self.text[line][index:])
-                    else:
-                        self.text[line+1] = self.text[line][index:] + self.text[line+1]
-                    self.text[line] = text[0:index]
-                else:
-                    self.text[line] = text[1:]
-                loop = True
+            # if we've wrapped the text, then adjust the wrap to the last word    
+            if wrap_point: 
+                self.text.append(text[:wrap_point-1])
+                text = text[wrap_point:]
         
-        
+        self.text.append(text)
+        self.min_size.y = (len(self.text) * (fontHeight + lineSpacing))+(self.FONT_OFFSET*2)
+        for t in self.text:
+            self.min_size.x = max(self.min_size.x, font.size(t)[0]+(self.FONT_OFFSET*2))
 
     def render_text(self):
         screen = pygame.display.get_surface()
 
         font = self.get_font(True)
         font_height = font.get_height()
-
         
         for i, text in enumerate(self.text):
             text_surface = font.render(text, True, 'black')
@@ -160,6 +147,7 @@ class widget(element):
             screen.blit(text_surface, (text_pos.x, text_pos.y))
     
     RADIUS = 10
+
 
     def _render_rect(self, color, outline: float = 0.0):
         screen = pygame.display.get_surface()
