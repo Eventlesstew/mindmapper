@@ -1,7 +1,7 @@
 import subprocess
 import sys
-import pygame
 import json
+import pygame
 from functions.elements import widget
 from functions.elements import widget_link
 from enum import Enum
