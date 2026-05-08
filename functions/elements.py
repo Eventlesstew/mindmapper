@@ -124,6 +124,7 @@ class widget(element):
         self.min_size.y = (len(self.text) * (fontHeight + lineSpacing))+(self.FONT_OFFSET*2)
 
     def render_text(self):
+        ## TODO - Fix a bug that causes the thing to crash if there is no text.
         screen = pygame.display.get_surface()
 
         font = self.get_font(True)
