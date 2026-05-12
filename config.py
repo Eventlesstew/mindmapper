@@ -1,3 +1,4 @@
+from enum import Enum
 class C:
     def __init__(self):
         self.double_click_time: float = 200.0
@@ -7,6 +8,15 @@ class C:
         self.trackpad_sensitivity: float = 10
 
         self.font = 'assets/fonts/calibri-regular.ttf'
+
+    class colors():
+        background = "#a1bde0"
+        background_grid = "#84aad8"
+        widget_outline = "#0073ff"
+        widget_outline_selected = "#e70606"
+        widget = "#ffffff"
+        text = "#000000"
+        
     
     def get_config():
         global config

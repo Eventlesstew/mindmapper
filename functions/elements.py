@@ -3,6 +3,7 @@ from enum import Enum
 from functions.camera import camClass
 from abc import ABC, abstractmethod
 import copy
+from config import C
 
 class element(ABC):
     class stateTypes(Enum):
@@ -124,6 +125,7 @@ class widget(element):
         self.min_size.y = (len(self.text) * (fontHeight + lineSpacing))+(self.FONT_OFFSET*2)
 
     def render_text(self):
+        conf: C = C.get_config()
         ## TODO - Fix a bug that causes the thing to crash if there is no text.
         screen = pygame.display.get_surface()
 
@@ -131,7 +133,7 @@ class widget(element):
         font_height = font.get_height()
         
         for i, text in enumerate(self.text):
-            text_surface = font.render(text, True, 'black')
+            text_surface = font.render(text, True, conf.colors.text)
             text_pos = (self.get_pos())
             text_pos.y += font_height * (i - ((len(self.text)-1)/2))
             text_pos -= (pygame.Vector2(font.size(text))/2)
@@ -169,14 +171,16 @@ class widget(element):
         ]
         for i in circ_pos:
             pygame.draw.circle(screen, color, i, radius + outline_size)
+        
     def render(self):
-        color = 'black'
+        conf: C = C.get_config()
+        color = conf.colors.widget_outline
 
         if self.state == self.stateTypes.TEXT:
-            color = 'red'
+            color = conf.colors.widget_outline_selected
 
         self._render_rect(color, self.OUTLINE_SIZE)
-        self._render_rect('white')
+        self._render_rect(conf.colors.widget)
     
         self.render_text()
     
@@ -253,12 +257,12 @@ class widget_link(element):
         
         return False
     
-    def render(self, selected):
+    def render(self):
         screen = pygame.display.get_surface()
         camera = camClass.get_camera()
         color = 'black'
-        if self == selected:
-            color = 'red'
+        #if self == selected:
+        #    color = 'red'
 
         line = self.get_line()
         pygame.draw.line(screen, color, line[0], line[1], round(widget.OUTLINE_SIZE*camera.zoom))
