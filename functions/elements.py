@@ -134,7 +134,15 @@ class widget(element):
         font = self.get_font(True)
         font_height = font.get_height()
         
+
+        timestamp = pygame.time.get_ticks() % conf.text_cursor_blink_ms * 2
+
+        raw_text_i = -1
         for i, text in enumerate(self.text):
+            #raw_text_i += 1
+            from G import GClass
+            G = GClass.get_G()
+
             text_surface = font.render(text, True, conf.colors.text)
             text_size = pygame.Vector2(font.size(text))
             text_pos = (self.get_pos())
@@ -142,18 +150,21 @@ class widget(element):
             text_pos -= (text_size/2)
             screen.blit(text_surface, (text_pos.x, text_pos.y))
 
-            if i == len(self.text) - 1 and self.state == self.stateTypes.TEXT:
-                timestamp = pygame.time.get_ticks() % 1000
-                if timestamp < 500:
-                    camera = camClass.get_camera()
-                    rect = pygame.Rect(
-                        text_pos + pygame.Vector2(text_size.x, 0),
-                        pygame.Vector2(2*camera.zoom, font_height)
-                        )
-                    pygame.draw.rect(screen, conf.colors.text, rect)
+            # Rendering the line break
+            if timestamp < conf.text_cursor_blink_ms and self.state == self.stateTypes.TEXT:
+                for text_i, _ in enumerate(text):
+                    raw_text_i += 1
+                    # BUG - Doing a line break via spacebar hides the text cursor.
+                    if raw_text_i == G.text_cursor:
+                        print(raw_text_i)
+                        camera = camClass.get_camera()
+                        rect = pygame.Rect(
+                            text_pos + pygame.Vector2(font.size(text[0:text_i+1])[0],0),
+                            pygame.Vector2(2*camera.zoom, font_height)
+                            )
+                        pygame.draw.rect(screen, conf.colors.text, rect)
     
     RADIUS = 10
-
 
     def _render_rect(self, color, outline: float = 0.0):
         screen = pygame.display.get_surface()
@@ -199,12 +210,18 @@ class widget(element):
     
     def input_text(self, event):
          if event.type == pygame.KEYDOWN and self.state == self.stateTypes.TEXT:
-            if event.key == pygame.K_RETURN:
-                self.raw_text += '\n'
-            elif event.key == pygame.K_BACKSPACE:
+            from G import GClass
+            G: GClass = GClass.get_G()
+            if event.key == pygame.K_BACKSPACE:
                 self.raw_text = self.raw_text[:-1]
+                G.text_cursor -= 1
             else:
-                self.raw_text += event.unicode
+                G.text_cursor += 1
+                if event.key == pygame.K_RETURN:
+                    self.raw_text += '\n'
+                else:
+                    self.raw_text += event.unicode
+            
             # Re-render the text.
             self.update_text()
     

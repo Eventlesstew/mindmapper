@@ -1,4 +1,3 @@
-from enum import Enum
 class C:
     def __init__(self):
         self.double_click_time: float = 200.0
@@ -6,7 +5,7 @@ class C:
         self.invert_trackpad_x: bool = True
         self.invert_trackpad_y: bool = False
         self.trackpad_sensitivity: float = 10
-
+        self.text_cursor_blink_ms: float = 500
         self.font = 'assets/fonts/calibri-regular.ttf'
 
     class colors():

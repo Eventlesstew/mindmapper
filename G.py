@@ -68,7 +68,8 @@ class GClass:
     def __init__(self):
         self.selected_element = None
         self.selected_button = None
-
+        self.text_cursor: int = 0
+        
         self.element_list = []
         self.button_list = [
             widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
@@ -359,9 +360,11 @@ class GClass:
         if double_click:
             if self.selected_element:
                 self.selected_element.state = widget.stateTypes.TEXT
+                self.text_cursor = len(self.selected_element.raw_text)
             else:
-                self.selected_element = self.addWidget()
-                self.selected_button = self.selected_element
+                newWidget = self.addWidget()
+                self.selected_element = newWidget
+                self.selected_button = newWidget
         
         self.leftClick_timestamp = timestamp
     
