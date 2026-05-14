@@ -4,6 +4,7 @@ from functions.camera import camClass
 from abc import ABC, abstractmethod
 import copy
 from config import C
+import math
 
 class element(ABC):
     class stateTypes(Enum):
@@ -19,7 +20,7 @@ class widget(element):
     FONT_OFFSET: int = 20
     MIN_SIZE = pygame.Vector2(100, 75)
     OUTLINE_SIZE = 5
-
+    
     def __init__(self, pos: pygame.Vector2, size: pygame.Vector2 = None, text: str = ''):
         if size:
             pass
@@ -29,7 +30,6 @@ class widget(element):
         self.size: pygame.Vector2 = size
         self.min_size: pygame.Vector2 = self.MIN_SIZE.copy()
         self.pos: pygame.Vector2 = pos
-        self.selected: bool = False
         self.state: int = 0
         self.raw_text: str = text
         self.text: list[str] = [text]
@@ -37,7 +37,9 @@ class widget(element):
         self.reset_size()
     
     def is_selected(self):
-        return self.state != self.stateTypes.IDLE
+        from G import GClass
+        G = GClass.get_G()
+        return G.selected_element == self
     
     def get_rect(self, camMod: bool = True, padding:float = 0) -> pygame.Rect:
         min_size = self.get_min_size()
@@ -134,10 +136,21 @@ class widget(element):
         
         for i, text in enumerate(self.text):
             text_surface = font.render(text, True, conf.colors.text)
+            text_size = pygame.Vector2(font.size(text))
             text_pos = (self.get_pos())
             text_pos.y += font_height * (i - ((len(self.text)-1)/2))
-            text_pos -= (pygame.Vector2(font.size(text))/2)
+            text_pos -= (text_size/2)
             screen.blit(text_surface, (text_pos.x, text_pos.y))
+
+            if i == len(self.text) - 1 and self.state == self.stateTypes.TEXT:
+                timestamp = pygame.time.get_ticks() % 1000
+                if timestamp < 500:
+                    camera = camClass.get_camera()
+                    rect = pygame.Rect(
+                        text_pos + pygame.Vector2(text_size.x, 0),
+                        pygame.Vector2(2*camera.zoom, font_height)
+                        )
+                    pygame.draw.rect(screen, conf.colors.text, rect)
     
     RADIUS = 10
 
@@ -176,7 +189,7 @@ class widget(element):
         conf: C = C.get_config()
         color = conf.colors.widget_outline
 
-        if self.state == self.stateTypes.TEXT:
+        if self.is_selected():#self.state == self.stateTypes.TEXT:
             color = conf.colors.widget_outline_selected
 
         self._render_rect(color, self.OUTLINE_SIZE)
