@@ -122,11 +122,15 @@ class widget(element):
                 if font.size(self.text[-1]+w)[0] > rect.width:
                     self.text.append(w)
                 else:
-                    self.text[-1] += " " + w
+                    if self.text[-1]:
+                        self.text[-1] += " "
+                    self.text[-1] += w
 
         self.min_size.y = (len(self.text) * (fontHeight + lineSpacing))+(self.FONT_OFFSET*2)
 
     def render_text(self):
+        from G import GClass
+        G: GClass = GClass.get_G()
         conf: C = C.get_config()
         ## TODO - Fix a bug that causes the thing to crash if there is no text.
         screen = pygame.display.get_surface()
@@ -137,32 +141,44 @@ class widget(element):
 
         timestamp = pygame.time.get_ticks() % conf.text_cursor_blink_ms * 2
 
-        raw_text_i = -1
         for i, text in enumerate(self.text):
-            #raw_text_i += 1
-            from G import GClass
-            G = GClass.get_G()
-
             text_surface = font.render(text, True, conf.colors.text)
+
             text_size = pygame.Vector2(font.size(text))
-            text_pos = (self.get_pos())
+
+            text_pos = self.get_pos()
             text_pos.y += font_height * (i - ((len(self.text)-1)/2))
             text_pos -= (text_size/2)
             screen.blit(text_surface, (text_pos.x, text_pos.y))
+        
+        if timestamp < conf.text_cursor_blink_ms and self.state == self.stateTypes.TEXT:
+            index: pygame.Vector2 = pygame.Vector2(G.text_cursor, 0)
+            while True:
+                print(index)
+                if index.x > len(self.text[int(index.y)]):
+                    index.x -= len(self.text[int(index.y)]) + 1
+                    index.y += 1
 
-            # Rendering the line break
-            if timestamp < conf.text_cursor_blink_ms and self.state == self.stateTypes.TEXT:
-                for text_i, _ in enumerate(text):
-                    raw_text_i += 1
-                    # BUG - Doing a line break via spacebar hides the text cursor.
-                    if raw_text_i == G.text_cursor:
-                        print(raw_text_i)
-                        camera = camClass.get_camera()
-                        rect = pygame.Rect(
-                            text_pos + pygame.Vector2(font.size(text[0:text_i+1])[0],0),
-                            pygame.Vector2(2*camera.zoom, font_height)
-                            )
-                        pygame.draw.rect(screen, conf.colors.text, rect)
+                    if index.y >= len(self.text):
+                        break
+                else:
+                    break
+            
+            camera = camClass.get_camera()
+            text_pos = self.get_pos()
+            text_pos.x += font.size(self.text[int(index.y)][0:int(index.x+1)])[0] / 2
+            text_pos.y += font_height*(index.y - 0.5 - ((len(self.text)-1)/2))
+            rect = pygame.Rect(
+                text_pos,
+                pygame.Vector2(2*camera.zoom, font_height)
+                )
+            pygame.draw.rect(screen, conf.colors.text, rect)
+        
+
+        
+
+        #for i, r in enumerate(self.raw_text):
+        #    v = self.text[i]
     
     RADIUS = 10
 

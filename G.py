@@ -360,7 +360,7 @@ class GClass:
         if double_click:
             if self.selected_element:
                 self.selected_element.state = widget.stateTypes.TEXT
-                self.text_cursor = len(self.selected_element.raw_text)
+                self.text_cursor = len(self.selected_element.raw_text)-1
             else:
                 newWidget = self.addWidget()
                 self.selected_element = newWidget
