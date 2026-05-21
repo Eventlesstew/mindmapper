@@ -122,7 +122,7 @@ class widget(element):
                 if font.size(self.text[-1]+w)[0] > rect.width:
                     self.text.append(w)
                 else:
-                    if self.text[-1]:
+                    if self.text[-1] or not w:
                         self.text[-1] += " "
                     self.text[-1] += w
 
@@ -142,20 +142,22 @@ class widget(element):
         timestamp = pygame.time.get_ticks() % conf.text_cursor_blink_ms * 2
 
         for i, text in enumerate(self.text):
-            text_surface = font.render(text, True, conf.colors.text)
+            try:
+                text_surface = font.render(text, True, conf.colors.text)
 
-            text_size = pygame.Vector2(font.size(text))
+                text_size = pygame.Vector2(font.size(text))
 
-            text_pos = self.get_pos()
-            text_pos.y += font_height * (i - ((len(self.text)-1)/2))
-            text_pos -= (text_size/2)
-            screen.blit(text_surface, (text_pos.x, text_pos.y))
+                text_pos = self.get_pos()
+                text_pos.y += font_height * (i - ((len(self.text)-1)/2))
+                text_pos -= (text_size/2)
+                screen.blit(text_surface, (text_pos.x, text_pos.y))
+            except pygame.error:
+                pass
         
         if timestamp < conf.text_cursor_blink_ms and self.state == self.stateTypes.TEXT:
             index: pygame.Vector2 = pygame.Vector2(G.text_cursor, 0)
             while True:
-                print(index)
-                if index.x > len(self.text[int(index.y)]):
+                if index.x >= len(self.text[int(index.y)]):
                     index.x -= len(self.text[int(index.y)]) + 1
                     index.y += 1
 
@@ -165,6 +167,11 @@ class widget(element):
                     break
             
             camera = camClass.get_camera()
+
+            if index.y >= len(self.text):
+                index.y = len(self.text)-1
+
+            print(index, len(self.text))
             text_pos = self.get_pos()
             text_pos.x += font.size(self.text[int(index.y)][0:int(index.x+1)])[0] / 2
             text_pos.y += font_height*(index.y - 0.5 - ((len(self.text)-1)/2))
@@ -229,14 +236,19 @@ class widget(element):
             from G import GClass
             G: GClass = GClass.get_G()
             if event.key == pygame.K_BACKSPACE:
-                self.raw_text = self.raw_text[:-1]
-                G.text_cursor -= 1
+                if self.raw_text:
+                    self.raw_text = self.raw_text[:-1]
+                    G.text_cursor -= 1
             else:
-                G.text_cursor += 1
+                new_letter = ''
                 if event.key == pygame.K_RETURN:
-                    self.raw_text += '\n'
-                else:
-                    self.raw_text += event.unicode
+                    new_letter = '\n'
+                elif event.unicode:
+                    new_letter = event.unicode
+                
+                if new_letter:
+                    self.raw_text += new_letter
+                    G.text_cursor += 1
             
             # Re-render the text.
             self.update_text()

@@ -7,6 +7,7 @@ class C:
         self.trackpad_sensitivity: float = 10
         self.text_cursor_blink_ms: float = 500
         self.font = 'assets/fonts/calibri-regular.ttf'
+        self.zoom_sensitivity = 10
 
     class colors():
         background = "#a1bde0"

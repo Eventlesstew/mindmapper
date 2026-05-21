@@ -14,15 +14,21 @@ class widgetButton():
         TEXTINPUT = 4
         DELETE = 5
     
-    def __init__(self, type: int, anchor: pygame.Vector2,offset:float=0.0, line_anchor:float=False):
+    def __init__(self, type: int, image_type: str, anchor: pygame.Vector2,offset:float=0.0, line_anchor:float=False):
         self.pos: pygame.Vector2 = pygame.Vector2(0,0)
         self.radius: float = 10
         self.type: int = type
         self.anchor: pygame.Vector2 = anchor
         self.offset: float = offset
         self.line_anchor: float = line_anchor
+        self.image_type: str = image_type
+        self.texture = None
+        self.load_texture()
     
-    def get_pos(self, parent: element, camMod: bool = True) -> pygame.Rect:
+    def load_texture(self):
+        self.texture = pygame.image.load('assets/textures/' + self.image_type + '.png')
+    
+    def get_pos(self, parent: element) -> pygame.Rect:
         if isinstance(parent, widget):
             rect = parent.get_rect(camMod=False, padding=self.offset)
             rect_size = pygame.Vector2(rect.size)
@@ -32,6 +38,9 @@ class widgetButton():
                 rect_size.x * self.anchor.x,
                 rect_size.y * self.anchor.y,
             )
+
+            camera = camClass.get_camera()
+            self.pos = (self.pos - camera.pos) * camera.zoom
         elif self.line_anchor and isinstance(parent, widget_link):
             line = parent.get_line()
             
@@ -42,11 +51,7 @@ class widgetButton():
         else:
             self.pos = None
         
-        if self.pos and camMod:
-            camera = camClass.get_camera()
-            return (self.pos - camera.pos) * camera.zoom
-        else:
-            return self.pos
+        return self.pos
     
     def collideMouse(self, parent: widget) -> bool:
         if isinstance(parent, widget):
@@ -61,3 +66,8 @@ class widgetButton():
         if pos:
             screen = pygame.display.get_surface()
             pygame.draw.circle(screen, 'red', pos, self.radius)
+
+            if self.texture:
+                screen.blit(self.texture, pos - pygame.Vector2(self.radius, self.radius))
+
+            

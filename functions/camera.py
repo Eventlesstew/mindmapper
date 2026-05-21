@@ -1,10 +1,10 @@
 import pygame
+from config import C
 
 class camClass:
     def __init__(self):
         self.pos: pygame.Vector2 = pygame.Vector2(0,0)
         self.zoom: float = 1.0
-        self._zoom_index: int = 0
         self.size = pygame.Vector2(1280, 720)
     
     def move_by(self, pos_mod: pygame.Vector2):
@@ -24,14 +24,13 @@ class camClass:
         )
     
     def zoom_by(self, zoom_mod: float):
+        conf: C = C.get_config()
+
         old_mouse_pos = self.get_mouse_pos()
-        self._zoom_index -= zoom_mod
+        self.zoom += conf.zoom_sensitivity * zoom_mod * 0.01
+        self.zoom = max(self.zoom, 0.1)
 
-        if self._zoom_index <= 0:
-            self.zoom = 1-self._zoom_index
-        else:
-            self.zoom = 1/(1+self._zoom_index)
-
+        self.zoom = round(self.zoom*100)/100
         self.pos += old_mouse_pos - self.get_mouse_pos()
 
     def get_mouse_pos(self) -> pygame.Vector2:

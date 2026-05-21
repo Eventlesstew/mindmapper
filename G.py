@@ -72,12 +72,12 @@ class GClass:
         
         self.element_list = []
         self.button_list = [
-            widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,0),20),
-            widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0,0.5),20),
-            widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(0.5,1),20),
-            widgetButton(widgetButton.buttonTypes.LINK,pygame.Vector2(1,0.5),20),
-            widgetButton(widgetButton.buttonTypes.RESIZE,pygame.Vector2(1,1)),
-            widgetButton(widgetButton.buttonTypes.DELETE,pygame.Vector2(1,0),0,0.5),
+            widgetButton(widgetButton.buttonTypes.LINK,'uparrow',pygame.Vector2(0.5,0),20),
+            widgetButton(widgetButton.buttonTypes.LINK,'leftarrow',pygame.Vector2(0,0.5),20),
+            widgetButton(widgetButton.buttonTypes.LINK,'downarrow',pygame.Vector2(0.5,1),20),
+            widgetButton(widgetButton.buttonTypes.LINK,'rightarrow',pygame.Vector2(1,0.5),20),
+            widgetButton(widgetButton.buttonTypes.RESIZE,'resize',pygame.Vector2(1,1)),
+            widgetButton(widgetButton.buttonTypes.DELETE,'delete',pygame.Vector2(1,0),0,0.5),
         ]
         self.toolbar = [
             toolbarButton('save'),
