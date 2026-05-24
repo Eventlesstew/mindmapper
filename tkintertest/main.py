@@ -53,12 +53,16 @@ def _load_file(dir: str):
       print(file)
       canvas.delete('all')
       for _, v in enumerate(file['widgets']):
-         widget(canvas, Rect2(
-            v['x'],
-            v['y'],
-            v["width"],
-            v['height'],
-         ))
+         widget(
+            root, 
+            Rect2(
+               v['x'],
+               v['y'],
+               v["width"],
+               v['height'],
+            ),
+            v['text']
+         )
          print(v)
 
    except OSError:
