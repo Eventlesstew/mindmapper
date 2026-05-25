@@ -1,63 +1,34 @@
 import wx
 
-class Window(wx.Frame):
-    def __init__(self, parent):
-        super().__init__(parent = parent, title = "Mindmapper")
-        self.panel = wx.Panel(self)
+class MyFrame(wx.Frame):
+    def __init__(self, *args, **kwds):
+        wx.Frame.__init__(self, *args, **kwds)
+        self.SetSize((500, 300))
+        self.bt_exit = wx.Button(self, wx.ID_ANY, "exit")
+        self.bt_refresh = wx.Button(self, wx.ID_ANY, "refresh")
+        self.text_ctrl = wx.TextCtrl(self, wx.ID_ANY, "some text", style=wx.TE_MULTILINE)
 
-        menuBar = wx.MenuBar()
-        #--------------
-        fileMenu = wx.Menu()
-        newFileItem  = fileMenu.Append(wx.ID_NEW,  '&New\tCTRL+N',  "Create New File")
-        self.Bind(wx.EVT_MENU, self.NewFile, newFileItem)
+        self.SetTitle("My GUI")
+        self.bt_exit.Bind(wx.EVT_BUTTON, self.on_exit)
+        self.bt_refresh.Bind(wx.EVT_BUTTON, self.on_refresh)
 
-        openFileItem = fileMenu.Append(wx.ID_OPEN, '&Open\tCTRL+O', "Open File")
-        self.Bind(wx.EVT_MENU, self.OpenFile, openFileItem)
+        sizer_1 = wx.BoxSizer(wx.VERTICAL)
+        sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_2.Add(self.bt_exit, 1, 0, 0)
+        sizer_2.Add(self.bt_refresh, 1, 0, 0)
+        sizer_1.Add(sizer_2, 0, wx.EXPAND, 0)
+        sizer_1.Add(self.text_ctrl, 1, wx.EXPAND, 0)
+        self.SetSizer(sizer_1)
+        self.Layout()
 
-        saveFileItem = fileMenu.Append(wx.ID_SAVE, '&Save\tCTRL+S', "Save File")
-        self.Bind(wx.EVT_MENU, self.SaveFile, saveFileItem)
+    def on_exit(self, evt):
+        self.Close()
 
-        saveAsFileItem = fileMenu.Append(wx.ID_SAVEAS, '&Save As\tCTRL+SHIFT+S', "Save As File")
-        self.Bind(wx.EVT_MENU, self.SaveAsFile, saveAsFileItem)
+    def on_refresh(self, evt):
+        self.text_ctrl.Clear()
 
-        menuBar.Append(fileMenu, 'File')
-        #--------------
-        editMenu = wx.Menu()
-        newFileItem  = editMenu.Append(wx.ID_NEW,  '&New\tCTRL+N',  "Create New File")
-        self.Bind(wx.EVT_MENU, self.NewFile, newFileItem)
-
-        openFileItem = editMenu.Append(wx.ID_OPEN, '&Open\tCTRL+O', "Open File")
-        self.Bind(wx.EVT_MENU, self.OpenFile, openFileItem)
-
-        saveFileItem = editMenu.Append(wx.ID_SAVE, '&Save\tCTRL+S', "Save File")
-        self.Bind(wx.EVT_MENU, self.SaveFile, saveFileItem)
-
-        menuBar.Append(editMenu, 'Edit')
-        #----------------
- 
-        self.SetMenuBar(menuBar)
-
-    def OnButton(self, e):
-        self.result.SetLabel(self.editname.GetValue())
- 
-    def NewFile(self, e):
-        print("New File")
- 
-    def OpenFile(self, e):
-        print("Open File")
-    
-    def SaveAsFile(self, e):
-        print("Save As File")
-
-    def SaveFile(self, e):
-        print("Save File")
-         
-
-         
-app = wx.App()
-frame = Window(None)
-frame.Show()
-
-
-editname = wx.TextCtrl(frame.panel, size=(140, -1))
-app.MainLoop()
+if __name__ == "__main__":
+    app = wx.App()
+    frame = MyFrame(None)
+    frame.Show()
+    app.MainLoop()
