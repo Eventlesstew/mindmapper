@@ -3,8 +3,8 @@ import math
 class Vector2:
     def __init__(self, x: float|int|list|tuple = None, y: float|int = None):
         
-        self.x: float = 0.0
-        self.y: float = 0.0
+        self.x: float|int = 0.0
+        self.y: float|int = 0.0
         
         if x == None:
             pass
@@ -118,7 +118,7 @@ class Vector2:
             return False
     
     def get_tuple(self): return (self.x, self.y)
-    
+    def get_Vector2i(self): return Vector2(int(self.x),int(self.y))
 
 class Rect2:
     def __init__(self, x: float|int|list|tuple|Vector2 = None, y: float|int|list|tuple|Vector2 = None, w: float|int = None, h: float|int = None):

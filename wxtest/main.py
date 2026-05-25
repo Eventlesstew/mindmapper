@@ -7,6 +7,7 @@ FILETYPES = "JSON File (*.txt)|*.json|All files (*.*)|*.*"
 class Window(wx.Frame):
     def __init__(self, parent):
         super().__init__(parent = parent, title = "Mindmapper")
+        self.canvas = Canvas(self)
         self.current_file_directory = None
         
 
@@ -53,7 +54,6 @@ class Window(wx.Frame):
 
     ## Function for saving a file.
     def _save_file(self, dir: str):
-        print(self.GetChildren())
         try:
             with open(dir, 'w') as f:
                 file = {}
@@ -87,9 +87,59 @@ class Window(wx.Frame):
         
         print(file)
         for _, v in enumerate(file['widgets']):
-            Popple(self, Vector2(v['x'],v['y']), Vector2(v['width'], v['height']), v['text'])
+            self.add_popple(Vector2(v['x'],v['y']),Vector2(v['width'], v['height']),v['text'])
             
         self.current_file_directory = dir
+        print(self.get_popples())
+    
+    def add_popple(self, pos: Vector2, size: Vector2, text:str=""):
+        true_pos = pos - (size*0.5)
+        Popple(self.canvas, true_pos, size, text)
+    
+    def get_popples(self):
+        return self.canvas.get_popples()
+
+class Canvas(wx.Panel):
+    def __init__(self, parent):
+        super().__init__(parent = parent)
+        self.SetBackgroundColour("#ffffff")
+
+        self.camera_pos: float = Vector2()
+        self.camera_zoom: float = 1.0
+
+        self.input_leftClick = False
+        self.input_mousePosition: Vector2 = Vector2()
+
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
+        self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
+        self.Bind(wx.EVT_MOTION, self.on_mouseMotion)
+
+        ## TODO
+        # Readd zooming.
+        # See if this program can detect whether a trackpad or mouse is being used
+        # Make it so pinching and panning on trackpads work.
+
+    def get_popples(self):
+        return self.GetChildren()
+
+    def on_leftClick(self, event):
+        self.input_leftClick = True
+    
+    def onRelease_leftClick(self, event):
+        self.input_leftClick = False
+    
+    def on_mouseMotion(self, event:wx.MouseEvent):
+        x,y = event.GetPosition()
+        new_mousePosition = Vector2(x,y)
+        mouse_movement = self.input_mousePosition - new_mousePosition
+        print(mouse_movement)
+        self.input_mousePosition = new_mousePosition
+
+        if self.input_leftClick:
+            self.camera_pos += mouse_movement
+            for _,v in enumerate(self.get_popples()):
+                if isinstance(v,Popple):
+                    v.update_display()
 
 class Popple(wx.TextCtrl):
     def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
@@ -98,10 +148,20 @@ class Popple(wx.TextCtrl):
         wx.TE_CENTER
         self.pos: Vector2 = pos
         self.size: Vector2 = size
-        self._update_display()
+        self.update_display()
     
-    def _update_display(self):
-        self.Move(int(self.pos.x),int(self.pos.y))
+    def get_display_position(self):
+        pos = self.pos
+
+        parent = self.GetParent()
+        if isinstance(parent,Canvas):
+            pos -= parent.camera_pos
+
+        return pos.get_Vector2i()
+
+    def update_display(self):
+        posi = self.get_display_position()
+        self.Move(posi.x,posi.y)
         self.SetSize(self.size.x, self.size.y)
     
     def get_file_data(self):
