@@ -11,10 +11,6 @@ class Window(wx.Frame):
         self.canvas = Canvas(self)
         self.current_file_directory = None
         self.recent_file_directory = None # Currently unused, meant for the Open Recent function.
-        self.config = {}
-
-
-        self.Bind(wx.EVT_CLOSE, self.on_close)
 
         # Menu Bar
         ##-------------
@@ -33,6 +29,11 @@ class Window(wx.Frame):
         #newFileItem  = editMenu.Append(wx.ID_NEW,  '&New\tCTRL+N',  "Create New File"); self.Bind(wx.EVT_MENU, self.filler, newFileItem)
         #menuBar.Append(editMenu, 'Edit')
         #----------------
+        self.SetMenuBar(menuBar)
+        
+        self.config = {}
+        self.Bind(wx.EVT_MOUSEWHEEL, self.canvas.on_mouseWheel)
+        self.Bind(wx.EVT_CLOSE, self.on_close)
         self._load_config()
 
     def _save_config(self):
@@ -122,12 +123,10 @@ class Window(wx.Frame):
                 file = json.loads(f.read())
         except IOError: print('save failed'); return
         
-        print(file)
         for _, v in enumerate(file['widgets']):
             self.add_popple(Vector2(v['x'],v['y']),Vector2(v['width'], v['height']),v['text'])
             
         self.current_file_directory = dir
-        print(self.get_popples())
     
     def on_close(self, event: wx.Event):
         self._save_config()
@@ -151,21 +150,29 @@ class Canvas(wx.Panel):
 
         self.input_leftClick = False
         self.input_mousePosition: Vector2 = Vector2()
+        self._focused_element: wx.Panel = None
 
-        self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
-        self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
-        self.Bind(wx.EVT_MOTION, self.on_mouseMotion)
-
+        APP.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
+        APP.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
+        APP.Bind(wx.EVT_MOTION, self.on_mouseMotion)
+        
         ## TODO
         # Readd zooming.
         # See if this program can detect whether a trackpad or mouse is being used
         # Make it so pinching and panning on trackpads work.
 
+    def get_focus(self):
+        return self._focused_element
+    
+    def set_focus(self, element: wx.Panel = None):
+        self._focused_element = element
+    
     def get_popples(self):
         return self.GetChildren()
 
     def on_leftClick(self, event: wx.Event):
         self.input_leftClick = True
+        print("hey")
     
     def onRelease_leftClick(self, event: wx.Event):
         self.input_leftClick = False
@@ -174,23 +181,47 @@ class Canvas(wx.Panel):
         x,y = event.GetPosition()
         new_mousePosition = Vector2(x,y)
         mouse_movement = self.input_mousePosition - new_mousePosition
-        print(mouse_movement)
         self.input_mousePosition = new_mousePosition
 
-        if self.input_leftClick:
-            self.camera_pos += mouse_movement
-            for _,v in enumerate(self.get_popples()):
-                if isinstance(v,Popple):
-                    v.update_display()
-
-class Popple(wx.TextCtrl):
-    def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
-        super().__init__(parent, wx.ID_ANY, text, style=wx.TE_CENTER|wx.TE_MULTILINE)
+        focus = self.get_focus()
+        if event.Dragging() and isinstance(focus, Popple): 
+            ## TODO - Fix this being buggy.
+            focus.pos -= mouse_movement
+            focus.update_display()
+    
+    def on_mouseWheel(self, event: wx.MouseEvent):
+        axis = event.GetWheelAxis()
+        amount = event.GetWheelRotation()
         
-        wx.TE_CENTER
+        movement = Vector2()
+        if axis == 0:
+            movement.y = -amount
+        elif axis == 1:
+            movement.x = amount
+        self.move_camera(movement)
+    
+    def move_camera(self, pos: Vector2):
+        self.camera_pos += pos
+        for _,v in enumerate(self.get_popples()):
+            if isinstance(v,Popple):
+                v.update_display()
+
+class Popple(wx.Panel):
+    def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
+        super().__init__(parent, wx.ID_ANY)
+        self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=wx.TE_READONLY|wx.TE_NO_VSCROLL|wx.TE_CENTER|wx.TE_MULTILINE)
+        
         self.pos: Vector2 = pos
         self.size: Vector2 = size
         self.update_display()
+
+        self.textCtrl.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
+        self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
+
+        self.textCtrl.Bind(wx.EVT_LEFT_DCLICK, self.on_leftDoubleClick)
+
+        self.textCtrl.Bind(wx.EVT_MOUSEWHEEL, self.on_unnecessary_input)
+        self.Bind(wx.EVT_MOUSEWHEEL, self.on_unnecessary_input)
     
     def get_display_position(self):
         pos = self.pos
@@ -205,6 +236,7 @@ class Popple(wx.TextCtrl):
         posi = self.get_display_position()
         self.Move(posi.x,posi.y)
         self.SetSize(self.size.x, self.size.y)
+        self.textCtrl.SetSize(self.size.x, self.size.y)
     
     def get_file_data(self):
         data = {
@@ -217,7 +249,34 @@ class Popple(wx.TextCtrl):
         }
         return data
 
-app = wx.App(True)
+    def on_unnecessary_input(self, event:wx.Event): # Overrides default behaviour and allows the canvas to manage mousewheel functions.
+        pass
+        event.Skip()
+
+    def on_leftClick(self, event:wx.Event):
+        print("gottem")
+        self.grab_focus()
+        event.Skip()
+
+    def on_leftDoubleClick(self, event):
+        if self.has_focus():
+            self.textCtrl.SetEditable(True)
+        else:
+            event.Skip()
+    
+    def grab_focus(self):
+        parent = self.GetParent()
+        if isinstance(parent, Canvas):
+            parent.set_focus(self)
+    
+    def has_focus(self) -> bool:
+        parent = self.GetParent()
+        if isinstance(parent, Canvas):
+            return parent.get_focus() == self
+        return False
+        
+
+APP = wx.App(True)
 frame = Window(None)
 frame.Show()
-app.MainLoop()
+APP.MainLoop()
