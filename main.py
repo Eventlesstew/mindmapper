@@ -171,9 +171,13 @@ class Canvas(wx.Panel):
         return self._focused_element
     
     def set_focus(self, element: wx.Panel = None):
-        if self._focused_element: self._focused_element.on_unfocused()
-        if element: element.on_focused()
-        self._focused_element = element
+        if element != self._focused_element:
+            old_element = self._focused_element
+            self._focused_element = element
+
+
+            if old_element: old_element.on_unfocused()
+            if element: element.on_focused()
     
     def append_popple(self, pos: Vector2, size: Vector2, text:str=""):
         true_pos = pos - (size*0.5)
@@ -232,8 +236,8 @@ class Canvas(wx.Panel):
 
 class Popple(wx.Panel):
     def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
-        super().__init__(parent, wx.ID_ANY)
-        self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=wx.TE_READONLY|wx.TE_NO_VSCROLL|wx.TE_CENTER|wx.TE_MULTILINE)
+        super().__init__(parent, wx.ID_ANY, style=wx.BORDER_SIMPLE)
+        self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=wx.TE_READONLY|wx.TE_NO_VSCROLL|wx.TE_CENTER|wx.TE_MULTILINE|wx.BORDER_NONE)
         
         self.pos: Vector2 = pos
         self.size: Vector2 = size
@@ -245,7 +249,7 @@ class Popple(wx.Panel):
         self.textCtrl.Bind(wx.EVT_LEFT_DCLICK, self.on_leftDoubleClick)
 
         self.textCtrl.Bind(wx.EVT_MOUSEWHEEL, self.on_unnecessary_input)
-        self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
+        #self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
     
     def get_display_position(self):
         pos = self.pos
@@ -274,6 +278,7 @@ class Popple(wx.Panel):
         return data
 
     def on_unnecessary_input(self, event:wx.Event): # Overrides default behaviour and allows the canvas to manage mousewheel functions.
+        print("bleh")
         parent = self.GetParent()
         if isinstance(parent, Canvas):
             parent.GetEventHandler().ProcessEvent(event)
@@ -281,11 +286,12 @@ class Popple(wx.Panel):
     def on_leftClick(self, event:wx.Event):
         print("gottem")
         self.grab_focus()
-        event.Skip()
+        #event.Skip()
 
     def on_leftDoubleClick(self, event):
         # When anything else is clicked on, disable editable text.
         if self.has_focus():
+            self.set_textEditable(True)
             self.textCtrl.SetEditable(True)
     
     def grab_focus(self):
@@ -303,7 +309,10 @@ class Popple(wx.Panel):
         pass
 
     def on_unfocused(self):
-        self.textCtrl.SetEditable(False)
+        self.set_textEditable(False)
+    
+    def set_textEditable(self, value: bool):
+        self.textCtrl.SetEditable(value)
         
 
 APP = wx.App(True)
