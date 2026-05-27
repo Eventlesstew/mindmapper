@@ -207,6 +207,7 @@ class Canvas(wx.Panel):
         self.input_mousePosition = new_mousePosition
 
         focus = self.get_focus()
+        print(focus)
         if event.Dragging() and isinstance(focus, Popple): 
             ## TODO - Fix this being buggy.
             focus.pos -= mouse_movement
@@ -244,6 +245,7 @@ class Popple(wx.Panel):
         self.textCtrl.Bind(wx.EVT_LEFT_DCLICK, self.on_leftDoubleClick)
 
         self.textCtrl.Bind(wx.EVT_MOUSEWHEEL, self.on_unnecessary_input)
+        self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
     
     def get_display_position(self):
         pos = self.pos
