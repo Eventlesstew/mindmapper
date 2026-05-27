@@ -1,14 +1,18 @@
 import math
+import wx
 
 class Vector2:
-    def __init__(self, x: float|int|list|tuple = None, y: float|int = None):
+    def __init__(self, x: float|int|list|tuple|wx.Point|wx.Size = None, y: float|int = None):
         
         self.x: float|int = 0.0
         self.y: float|int = 0.0
         
         if x == None:
             pass
-        elif isinstance(x,Vector2):
+        elif isinstance(x,wx.Size):
+            self.x = x.GetWidth()
+            self.y = x.GetHeight()
+        elif isinstance(x,Vector2) or isinstance(x,wx.Point):
             self.x = x.x
             self.y = x.y
         elif isinstance(x,list) or isinstance(x,tuple):
