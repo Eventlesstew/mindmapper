@@ -12,6 +12,8 @@ class Window(wx.Frame):
         self.current_file_directory = None
         self.recent_file_directory = None # Currently unused, meant for the Open Recent function.
 
+        wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
+
         # Menu Bar
         ##-------------
         menuBar = wx.MenuBar()
@@ -163,6 +165,7 @@ class Canvas(wx.Panel):
         if isinstance(parent, Window):
             position -= parent.GetPosition()
         
+        position /= self.camera_zoom
         position += self.camera_pos
 
         return position
@@ -194,7 +197,6 @@ class Canvas(wx.Panel):
             parent = self.GetParent()
             if isinstance(parent, Window):
                 pos += Vector2(parent.GetSize()) * 0.5
-                print(pos)
             pos += self.camera_pos
         self.append_popple(pos, Vector2(100,100))
     
@@ -205,6 +207,8 @@ class Canvas(wx.Panel):
         pass
     
     def on_mouseMotion(self, event:wx.MouseEvent):
+        event.Skip()
+        return
         x,y = event.GetPosition()
         new_mousePosition = Vector2(x,y)
         mouse_movement = self.input_mousePosition - new_mousePosition
@@ -226,10 +230,28 @@ class Canvas(wx.Panel):
             movement.y = -amount
         elif axis == 1:
             movement.x = amount
-        self.move_camera(movement)
+
+        if event.controlDown:
+            self.zoom_camera(movement.y * -0.01)
+        else:
+            self.move_camera(movement)
     
+    def zoom_camera(self, amount: float):
+        old_mouse_pos = self.get_mouse_position()
+        self.camera_zoom += amount
+        self.camera_zoom = max(self.camera_zoom, 0.1)
+        self.camera_zoom = round(self.camera_zoom*100)/100
+
+        self.camera_pos += old_mouse_pos - self.get_mouse_position()
+
+        self.update_all_elements()
+        print(self.camera_zoom)
+
     def move_camera(self, pos: Vector2):
         self.camera_pos += pos
+        self.update_all_elements()
+    
+    def update_all_elements(self):
         for _,v in enumerate(self.get_popples()):
             if isinstance(v,Popple):
                 v.update_display()
@@ -238,17 +260,40 @@ class Popple(wx.Panel):
     def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
         super().__init__(parent, wx.ID_ANY, style=wx.BORDER_SIMPLE)
         self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=wx.TE_READONLY|wx.TE_NO_VSCROLL|wx.TE_CENTER|wx.TE_MULTILINE|wx.BORDER_NONE)
-        
+        self.textCtrl.SetBackgroundColour(wx.Colour("#FF000000"))
+
+        self.font = wx.Font()
+        self.textCtrl.SetFont(wx.Font(
+            pointSize=14, 
+            family=wx.FONTFAMILY_DEFAULT, 
+            style=wx.FONTSTYLE_NORMAL, 
+            weight=wx.FONTWEIGHT_NORMAL, 
+            faceName='Calibri'
+        ))
+        self.SetBackgroundColour(wx.Colour("#00FF00FF"))
+
         self.pos: Vector2 = pos
         self.size: Vector2 = size
         self.update_display()
 
         self.textCtrl.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
         self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
+        self.textCtrl.Bind(wx.EVT_LEFT_DCLICK, self.on_leftClick)
+        self.Bind(wx.EVT_LEFT_DCLICK, self.on_leftClick)
 
-        self.textCtrl.Bind(wx.EVT_LEFT_DCLICK, self.on_leftDoubleClick)
+        self.textCtrl.Bind(wx.EVT_MOTION, self.on_mouseMotion)
+        self.Bind(wx.EVT_MOTION, self.on_mouseMotion)
+
+        self.textCtrl.Bind(wx.EVT_KEY_DOWN, self.on_key)
+        self.Bind(wx.EVT_KEY_DOWN, self.on_key)
+
+        self.textCtrl.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
+        self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
 
         self.textCtrl.Bind(wx.EVT_MOUSEWHEEL, self.on_unnecessary_input)
+
+        self.original_mouse_position = None
+        self.original_position = None
         #self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
     
     def get_display_position(self):
@@ -257,14 +302,28 @@ class Popple(wx.Panel):
         parent = self.GetParent()
         if isinstance(parent,Canvas):
             pos -= parent.camera_pos
+            pos *= parent.camera_zoom
 
         return pos.get_Vector2i()
 
+    def get_display_size(self):
+        size = self.size
+
+        parent = self.GetParent()
+        if isinstance(parent,Canvas):
+            size *= parent.camera_zoom
+
+        return size.get_Vector2i()
     def update_display(self):
         posi = self.get_display_position()
+        sizei = self.get_display_size()
         self.Move(posi.x,posi.y)
-        self.SetSize(self.size.x, self.size.y)
-        self.textCtrl.SetSize(self.size.x, self.size.y)
+        self.SetSize(sizei.x, sizei.y)
+        self.textCtrl.SetSize(sizei.x, sizei.y)
+
+        parent = self.GetParent()
+        if isinstance(parent, Canvas):
+            self.textCtrl.GetFont().SetPixelSize(round(12*parent.camera_zoom))
     
     def get_file_data(self):
         data = {
@@ -278,22 +337,49 @@ class Popple(wx.Panel):
         return data
 
     def on_unnecessary_input(self, event:wx.Event): # Overrides default behaviour and allows the canvas to manage mousewheel functions.
-        print("bleh")
         parent = self.GetParent()
         if isinstance(parent, Canvas):
             parent.GetEventHandler().ProcessEvent(event)
 
-    def on_leftClick(self, event:wx.Event):
-        print("gottem")
-        self.grab_focus()
+    def on_leftClick(self, event:wx.MouseEvent):
+        if event.LeftDClick():
+            self.set_textEditable(True)
+        else:
+            if self.has_focus():
+                self.set_textEditable(False)
+            else:
+                self.grab_focus()
+
+            parent = self.GetParent()
+            if isinstance(parent, Canvas):
+                self.original_mouse_position = parent.get_mouse_position()
+                self.original_position = self.pos
         #event.Skip()
 
-    def on_leftDoubleClick(self, event):
-        # When anything else is clicked on, disable editable text.
-        if self.has_focus():
-            self.set_textEditable(True)
-            self.textCtrl.SetEditable(True)
+    def onRelease_leftClick(self, event:wx.Event):
+        self.original_mouse_position = None
+        self.original_position = None
     
+    def on_mouseMotion(self, event:wx.MouseEvent):
+        if self.has_focus() and self.original_mouse_position and self.original_mouse_position:
+            parent: Canvas = self.GetParent()
+            mousePos = parent.get_mouse_position()
+            dist = self.original_mouse_position - self.original_position
+            pos = mousePos - dist
+            self.pos = pos
+            self.update_display()
+    
+    def on_key(self, event:wx.KeyEvent):
+        keyCode = event.GetKeyCode()
+        if keyCode == wx.KeyCode.WXK_BACK:
+            print(self.textCtrl.IsEditable())
+            #if self.textCtrl.IsEditable():
+            #    pass
+            #else:
+            #    self.Destroy()
+        
+        event.Skip()
+        
     def grab_focus(self):
         parent = self.GetParent()
         if isinstance(parent, Canvas):
