@@ -15,13 +15,14 @@ class Window(wx.Frame):
         # The 'wx.EXPAND' means it fills the space in both directions
         sizer.Add(self.canvas, 1, wx.EXPAND) 
         self.SetSizer(sizer)
+
         self.current_file_directory = None
         self.recent_file_directory = None # Currently unused, meant for the Open Recent function.
 
         wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
         self.popple_buttons = [
-            PoppleButton(self, PoppleButton.Types.DELETE, Vector2(0,0))
+            PoppleButton(self.canvas, PoppleButton.Types.DELETE, Vector2(0,0))
         ]
             #self.panel.Bind(wx.EVT_GESTURE_ZOOM, self.OnZoom)
         # Menu Bar
@@ -158,6 +159,7 @@ class Window(wx.Frame):
 class Canvas(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent = parent)
+        self.SetDoubleBuffered(True)
         self.SetBackgroundColour("#ffffff")
 
         self.camera_pos: float = Vector2()
@@ -201,7 +203,12 @@ class Canvas(wx.Panel):
     # TODO - Rename this to get_elements
     # Gets all Popples and Links.
     def get_popples(self):
-        return self.GetChildren()
+        result = []
+        for _, v in enumerate(self.GetChildren()):
+            if isinstance(v, Popple):
+                result.append(v)
+
+        return result
 
     # Called if "Edit > Add Popple" is used.
     def on_add_popple(self, event: wx.Event):
@@ -217,7 +224,6 @@ class Canvas(wx.Panel):
     
     def on_leftClick(self, event: wx.Event):
         self.SetFocusIgnoringChildren()
-        print(self.HasFocus())
     
     def on_mouseMotion(self, event:wx.MouseEvent):
         event.Skip()
@@ -255,7 +261,6 @@ class Canvas(wx.Panel):
         self.camera_pos += old_mouse_pos - self.get_mouse_position()
 
         self.update_all_elements()
-        print(self.camera_zoom)
 
     # Moves camera by a specified amount
     def move_camera(self, pos: Vector2):
@@ -267,14 +272,13 @@ class Canvas(wx.Panel):
         for _,v in enumerate(self.get_popples()):
             if isinstance(v,Popple):
                 v.update_display()
-        parent = self.GetParent
+        parent = self.GetParent()
         if isinstance(parent, Window):
             for _,v in enumerate(parent.get_popple_buttons()):
                 v.update_display()
     
     def on_focus_changed(self, event):
         self.update_all_elements()
-        print(self.FindFocus())
 
 class Popple(wx.Panel):
     def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
@@ -293,6 +297,7 @@ class Popple(wx.Panel):
         #self.textCtrl.SetBackgroundColour(wx.Colour("#FF0000"))
         self.SetForegroundColour(wx.Colour("#000000"))
         self.SetBackgroundColour(wx.Colour("#00FF00FF"))
+        
 
         self.pos: Vector2 = pos
         self.size: Vector2 = size
@@ -301,7 +306,6 @@ class Popple(wx.Panel):
         # A seperate function is used because both the popple and the text element can recieve inputs.
         # I cannot just disable all binds for the textctrl because it needs to be able to get text when it can.
         def Bind(event: wx.PyEventBinder, handler):
-            print(handler)
             self.textCtrl.Bind(event, handler)
             self.Bind(event, handler)
 
@@ -354,7 +358,8 @@ class Popple(wx.Panel):
         parent = self.GetParent()
         if isinstance(parent, Canvas):
             self.textCtrl.GetFont().SetPointSize(round(12*parent.camera_zoom))
-            print(self.textCtrl.GetFont().GetPixelSize())
+        
+        self.Update()
     
     # Used by the file saving system to get the necessary data from this Popple.
     def get_file_data(self):
@@ -375,7 +380,6 @@ class Popple(wx.Panel):
 
     def on_leftClick(self, event:wx.MouseEvent):
         self.textCtrl.SetFocus()
-        print(self.textCtrl.HasFocus())
 
         if event.LeftDClick():
             self.setEditable(True)
@@ -410,8 +414,8 @@ class Popple(wx.Panel):
     
     def on_key(self, event:wx.KeyEvent):
         keyCode = event.GetKeyCode()
-        if keyCode == wx.KeyCode.WXK_BACK:
-            print(self.textCtrl.IsEditable())
+        #if keyCode == wx.KeyCode.WXK_BACK:
+        #    print(self.textCtrl.IsEditable())
             #if self.textCtrl.IsEditable():
             #    pass
             #else:
@@ -423,6 +427,7 @@ class Popple(wx.Panel):
         return self.textCtrl.HasFocus()
 
     def on_focused(self, event:wx.Event):
+        self.Raise()
         self.SetBackgroundColour(wx.Colour("#00FF00"))
         event.Skip()
 
@@ -435,6 +440,10 @@ class Popple(wx.Panel):
     
     def setEditable(self, value: bool):
         self.textCtrl.SetEditable(value)
+
+class UI(wx.Panel):
+    def __init__(self, parent):
+        super().__init__(parent)
         
 class PoppleButton(wx.Button):
     class Types(Enum):
@@ -447,17 +456,19 @@ class PoppleButton(wx.Button):
         self.SetSize(100,100)
         self.type = type
         self.anchor: Vector2 = anchor
-    
+        self.SetBackgroundColour('#ff0000')
+        self.SetLabel('Test')
     def update_display(self):
         focused_element = self.FindFocus()
         inactive = True
         if isinstance(focused_element, wx.TextCtrl):
             focus_parent = focused_element.GetParent()
             if isinstance(focus_parent, Popple):
+                print(focus_parent)
                 inactive = False
                 self.Enable()
-                pos = focus_parent.get_display_position()
-                self.Move(pos)
+                pos = focus_parent.get_display_position().get_Vector2i()
+                self.Move(pos.x, pos.y)
         
         if inactive:
             self.Disable()
