@@ -21,9 +21,12 @@ class Window(wx.Frame):
 
         wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
-        self.popple_buttons = [
-            PoppleButton(self.canvas, PoppleButton.Types.DELETE, Vector2(0,0))
-        ]
+        PoppleButton(self.canvas, PoppleButton.Types.DELETE, Vector2(0,0))
+        PoppleButton(self.canvas, PoppleButton.Types.RESIZE, Vector2(1,1))
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,0))
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,1))
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0,0.5))
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(1,0.5))
             #self.panel.Bind(wx.EVT_GESTURE_ZOOM, self.OnZoom)
         # Menu Bar
         ##-------------
@@ -47,9 +50,7 @@ class Window(wx.Frame):
         self.config = {}
         self.Bind(wx.EVT_CLOSE, self.on_close)
         self._load_config()
-
-    def get_popple_buttons(self):
-        return self.popple_buttons
+    
     def _save_config(self):
         try:
             with open(CONFIG_DIRECTORY, 'w') as f:
@@ -210,6 +211,13 @@ class Canvas(wx.Panel):
 
         return result
 
+    def get_popple_buttons(self):
+        result = []
+        for _, v in enumerate(self.GetChildren()):
+            if isinstance(v, PoppleButton):
+                result.append(v)
+
+        return result
     # Called if "Edit > Add Popple" is used.
     def on_add_popple(self, event: wx.Event):
         pos = Vector2()
@@ -269,13 +277,17 @@ class Canvas(wx.Panel):
     
     # Called when camera is moved to ensure all elements are updated.
     def update_all_elements(self):
+        self.update_popples()
+        self.update_popple_buttons()
+
+    def update_popples(self):
         for _,v in enumerate(self.get_popples()):
             if isinstance(v,Popple):
                 v.update_display()
-        parent = self.GetParent()
-        if isinstance(parent, Window):
-            for _,v in enumerate(parent.get_popple_buttons()):
-                v.update_display()
+    
+    def update_popple_buttons(self):
+        for _,v in enumerate(self.get_popple_buttons()):
+            v.update_display()
     
     def on_focus_changed(self, event):
         self.update_all_elements()
@@ -400,14 +412,18 @@ class Popple(wx.Panel):
     
     def on_mouseMotion(self, event:wx.MouseEvent):
         if self.textCtrl.IsEditable():
+            # So you cannot drag the Popple when editing text.
             event.Skip()
+        
         elif self.hasFocus() and self.original_mouse_position and self.original_mouse_position:
+            # Main Drag Code.
             parent: Canvas = self.GetParent()
             mousePos = parent.get_mouse_position()
             dist = self.original_mouse_position - self.original_position
             pos = mousePos - dist
             self.pos = pos
             self.update_display()
+            parent.update_popple_buttons()
     
     def on_mouseWheel(self, event:wx.MouseEvent):
         self.on_unnecessary_input(event)
@@ -449,29 +465,57 @@ class PoppleButton(wx.Button):
     class Types(Enum):
         NONE = -1
         DELETE = 0
-        RESIZE = 1
+        LINK = 1
+        RESIZE = 2
     
     def __init__(self, parent: wx.Window, type: int, anchor: Vector2 = (0,0)):
         super().__init__(parent)
-        self.SetSize(100,100)
         self.type = type
         self.anchor: Vector2 = anchor
         self.SetBackgroundColour('#ff0000')
         self.SetLabel('Test')
+
+        self.size: Vector2 = Vector2(50,50)
     def update_display(self):
-        focused_element = self.FindFocus()
-        inactive = True
-        if isinstance(focused_element, wx.TextCtrl):
-            focus_parent = focused_element.GetParent()
-            if isinstance(focus_parent, Popple):
-                print(focus_parent)
-                inactive = False
-                self.Enable()
-                pos = focus_parent.get_display_position().get_Vector2i()
-                self.Move(pos.x, pos.y)
         
-        if inactive:
+        def enable(): # This local function enables the button.
+            self.Enable()
+            self.Show()
+            self.Raise() # TEMPORARY
+        
+        def disable(): # This local function disables the button.
+            self.Hide()
             self.Disable()
+        
+
+        parent = self.GetParent()
+        if not isinstance(parent, Canvas): return
+
+        focused_element = self.FindFocus()
+        if not isinstance(focused_element, wx.TextCtrl):
+            disable()
+            return
+
+        # Since the Popple's TextCtrl has focus, we need to get the Popple through the GetParent function.
+        focused_popple = focused_element.GetParent() 
+        if not isinstance(focused_popple, Popple):
+            disable()
+            return
+
+        enable()
+
+        # Determines the Size
+        size = self.size * parent.camera_zoom
+
+        size = size.get_Vector2i()
+        self.SetSize(size.x,size.y)
+
+        # Determines the Position
+        pos = focused_popple.get_display_position() - size
+        pos += (focused_popple.get_display_size() + size) * self.anchor
+
+        pos = pos.get_Vector2i()
+        self.Move(pos.x, pos.y)
 APP = wx.App(True)
 frame = Window(None)
 frame.Show()
