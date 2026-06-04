@@ -3,8 +3,7 @@ import json
 from enum import *
 from vectors import *
 
-FILETYPES = "JSON File (*.json)|*.json|All files (*.*)|*.*"
-CONFIG_DIRECTORY = "config.json"
+FILETYPES = "JSON File (*.json)|*.json|All files (*.*)|*.json"
 
 class Window(wx.Frame):
     def __init__(self, parent):
@@ -51,9 +50,16 @@ class Window(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.on_close)
         self._load_config()
     
+    def get_config_path(self):
+        standardPaths = wx.StandardPaths.Get()
+        config_root_dir: str = standardPaths.GetUserDataDir()
+        config_dir = config_root_dir.replace("appinfo", 'eventlesstew/mindmapper/conf.json')
+        return config_dir
+
     def _save_config(self):
+        dir = self.get_config_path()
         try:
-            with open(CONFIG_DIRECTORY, 'w') as f:
+            with open(dir, 'w') as f:
                 position = self.GetPosition()
                 windowSize = self.GetSize()
                 file = {
@@ -70,8 +76,9 @@ class Window(wx.Frame):
             print('save failed')
 
     def _load_config(self):
+        dir = self.get_config_path()
         try:
-            with open(CONFIG_DIRECTORY, 'r') as f:
+            with open(dir, 'r') as f:
                 file = json.loads(f.read())
 
                 # Set the size and position of the window.
@@ -111,10 +118,15 @@ class Window(wx.Frame):
     def _save_file(self, dir: str):
         try:
             with open(dir, 'w') as f:
-                file = {}
+                file = {
+                    "widgets":[]
+                }
 
-                for _, v in enumerate(self.GetChildren()):
+                for _, v in enumerate(self.canvas.get_popples()):
                     v_data = v.get_file_data()
+                    file['widgets'].append(v_data)
+
+                f.write(json.dumps(file))
                 
             self.current_file_directory = dir
         except IOError:
@@ -152,10 +164,6 @@ class Window(wx.Frame):
         self._save_config()
 
         event.Skip()
-
-    ## Getting all elements
-    def get_popples(self):
-        return self.canvas.get_popples()
 
 class Canvas(wx.Panel):
     def __init__(self, parent):
@@ -197,9 +205,9 @@ class Canvas(wx.Panel):
         return position
     
     # Adds a new Popple to the field
-    def append_popple(self, pos: Vector2, size: Vector2, text:str=""):
+    def append_popple(self, pos: Vector2, size: Vector2 = Vector2(100,100), text:str=""):
         true_pos = pos - (size*0.5)
-        Popple(self, true_pos, size, text)
+        return Popple(self, true_pos, size, text)
 
     # TODO - Rename this to get_elements
     # Gets all Popples and Links.
@@ -207,6 +215,14 @@ class Canvas(wx.Panel):
         result = []
         for _, v in enumerate(self.GetChildren()):
             if isinstance(v, Popple):
+                result.append(v)
+
+        return result
+
+    def get_popple_connections(self):
+        result = []
+        for _, v in enumerate(self.GetChildren()):
+            if isinstance(v, PoppleConnection):
                 result.append(v)
 
         return result
@@ -228,7 +244,7 @@ class Canvas(wx.Panel):
             if isinstance(parent, Window):
                 pos += Vector2(parent.GetSize()) * 0.5
             pos += self.camera_pos
-        self.append_popple(pos, Vector2(100,100))
+        self.append_popple(pos)
     
     def on_leftClick(self, event: wx.Event):
         self.SetFocusIgnoringChildren()
@@ -277,12 +293,18 @@ class Canvas(wx.Panel):
     
     # Called when camera is moved to ensure all elements are updated.
     def update_all_elements(self):
+        self.update_popple_connections()
         self.update_popples()
         self.update_popple_buttons()
 
     def update_popples(self):
         for _,v in enumerate(self.get_popples()):
             if isinstance(v,Popple):
+                v.update_display()
+    
+    def update_popple_connections(self):
+        for _,v in enumerate(self.get_popple_connections()):
+            if isinstance(v,PoppleConnection):
                 v.update_display()
     
     def update_popple_buttons(self):
@@ -381,7 +403,7 @@ class Popple(wx.Panel):
             "width":self.size.x,
             "height":self.size.y,
             #"id":self.GetId(),
-            "text":self.GetValue()
+            "text":self.textCtrl.GetValue()
         }
         return data
 
@@ -457,9 +479,53 @@ class Popple(wx.Panel):
     def setEditable(self, value: bool):
         self.textCtrl.SetEditable(value)
 
-class UI(wx.Panel):
-    def __init__(self, parent):
+class PoppleConnection(wx.Panel):
+    def __init__(self, parent, widget1: Popple, widget2: Popple):
         super().__init__(parent)
+
+        self.widget1 = widget1
+        self.widget2 = widget2
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.update_display()
+        
+    def update_display(self):
+        self.Lower()
+        widget1_pos = self.widget1.get_display_position()
+        widget2_pos = self.widget2.get_display_position()
+
+        pos = Vector2(
+            min(widget1_pos.x, widget2_pos.x),
+            min(widget1_pos.y, widget2_pos.y)
+        )
+        size = Vector2(
+            max(widget1_pos.x, widget2_pos.x)-pos.x,
+            max(widget1_pos.y, widget2_pos.y)-pos.y
+        )
+
+        self.Move(pos.x, pos.y)
+        self.SetSize(size.x, size.y)
+        self.on_paint()
+    
+    def on_paint(self, event = None):
+        # Create a Paint Device Context
+        dc = wx.PaintDC(self)#event.GetEventObject())
+        gc = wx.GraphicsContext.Create(dc)
+        if not gc: return
+
+        # make a path that contains a circle and some lines
+        pen = wx.Pen(wx.Colour(255, 0, 0), 3, wx.PENSTYLE_SOLID)
+        gc.SetPen(pen)
+
+        widget1_pos = self.widget1.get_display_position()
+        widget2_pos = self.widget2.get_display_position()
+
+        path = gc.CreatePath()
+        path.MoveToPoint(widget1_pos.x, widget1_pos.y)
+        path.AddLineToPoint(widget2_pos.x, widget2_pos.y)
+        path.CloseSubpath()
+
+        gc.StrokePath(path)
+        gc.Flush()
         
 class PoppleButton(wx.Button):
     class Types(Enum):
@@ -476,6 +542,19 @@ class PoppleButton(wx.Button):
         self.SetLabel('Test')
 
         self.size: Vector2 = Vector2(50,50)
+
+        self.Bind(wx.EVT_BUTTON, self.on_clicked)
+    
+    def get_focused_popple(self):
+        focused_element = self.FindFocus()
+        if not isinstance(focused_element, wx.TextCtrl): return None
+
+        # Since the Popple's TextCtrl has focus, we need to get the Popple through the GetParent function.
+        focused_popple = focused_element.GetParent() 
+        if not isinstance(focused_popple, Popple): return None
+    
+        return focused_popple
+
     def update_display(self):
         
         def enable(): # This local function enables the button.
@@ -489,16 +568,8 @@ class PoppleButton(wx.Button):
         
 
         parent = self.GetParent()
-        if not isinstance(parent, Canvas): return
-
-        focused_element = self.FindFocus()
-        if not isinstance(focused_element, wx.TextCtrl):
-            disable()
-            return
-
-        # Since the Popple's TextCtrl has focus, we need to get the Popple through the GetParent function.
-        focused_popple = focused_element.GetParent() 
-        if not isinstance(focused_popple, Popple):
+        focused_popple = self.get_focused_popple()
+        if (not isinstance(parent, Canvas)) or (not isinstance(focused_popple, Popple)):
             disable()
             return
 
@@ -516,6 +587,16 @@ class PoppleButton(wx.Button):
 
         pos = pos.get_Vector2i()
         self.Move(pos.x, pos.y)
+    
+    def on_clicked(self, event):
+        parent = self.GetParent()
+        focused_popple = self.get_focused_popple()
+        if (not isinstance(parent, Canvas)) or (not isinstance(focused_popple, Popple)):
+            return
+        
+        new_popple = parent.append_popple(Vector2())
+        PoppleConnection(parent, focused_popple, new_popple)
+
 APP = wx.App(True)
 frame = Window(None)
 frame.Show()
