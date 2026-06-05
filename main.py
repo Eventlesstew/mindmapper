@@ -491,22 +491,25 @@ class PoppleConnection(wx.Panel):
     def update_display(self):
         self.Lower()
         widget1_pos = self.widget1.get_display_position()
+        widget1_opposite_pos = widget1_pos + self.widget1.get_display_size()
         widget2_pos = self.widget2.get_display_position()
+        widget2_opposite_pos = widget2_pos + self.widget2.get_display_size()
 
         pos = Vector2(
             min(widget1_pos.x, widget2_pos.x),
             min(widget1_pos.y, widget2_pos.y)
         )
         size = Vector2(
-            max(widget1_pos.x, widget2_pos.x)-pos.x,
-            max(widget1_pos.y, widget2_pos.y)-pos.y
+            max(widget1_opposite_pos.x, widget2_opposite_pos.x)-pos.x,
+            max(widget1_opposite_pos.y, widget2_opposite_pos.y)-pos.y
         )
 
         self.Move(pos.x, pos.y)
         self.SetSize(size.x, size.y)
-        self.on_paint()
+        #self.on_paint()
     
     def on_paint(self, event = None):
+        self.update_display()
         # Create a Paint Device Context
         dc = wx.PaintDC(self)#event.GetEventObject())
         gc = wx.GraphicsContext.Create(dc)
@@ -516,10 +519,17 @@ class PoppleConnection(wx.Panel):
         pen = wx.Pen(wx.Colour(255, 0, 0), 3, wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
-        widget1_pos = self.widget1.get_display_position()
+        pos = self.GetPosition()
+        widget1_pos = self.widget1.get_display_position() 
+        widget1_pos += self.widget1.get_display_size() * 0.5
+        widget1_pos -= pos
+
         widget2_pos = self.widget2.get_display_position()
+        widget2_pos += self.widget2.get_display_size() * 0.5
+        widget2_pos -= pos
 
         path = gc.CreatePath()
+
         path.MoveToPoint(widget1_pos.x, widget1_pos.y)
         path.AddLineToPoint(widget2_pos.x, widget2_pos.y)
         path.CloseSubpath()
@@ -535,13 +545,12 @@ class PoppleButton(wx.Button):
         RESIZE = 2
     
     def __init__(self, parent: wx.Window, type: int, anchor: Vector2 = (0,0)):
-        super().__init__(parent)
+        super().__init__(parent, style=wx.BORDER_NONE)
         self.type = type
         self.anchor: Vector2 = anchor
         self.SetBackgroundColour('#ff0000')
-        self.SetLabel('Test')
 
-        self.size: Vector2 = Vector2(50,50)
+        self.size: Vector2 = Vector2(20,20)
 
         self.Bind(wx.EVT_BUTTON, self.on_clicked)
     
@@ -594,8 +603,9 @@ class PoppleButton(wx.Button):
         if (not isinstance(parent, Canvas)) or (not isinstance(focused_popple, Popple)):
             return
         
-        new_popple = parent.append_popple(Vector2())
-        PoppleConnection(parent, focused_popple, new_popple)
+        if self.type == self.Types.LINK:
+            new_popple = parent.append_popple(Vector2())
+            PoppleConnection(parent, focused_popple, new_popple)
 
 APP = wx.App(True)
 frame = Window(None)
