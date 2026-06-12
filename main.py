@@ -33,7 +33,7 @@ class Window(wx.Frame):
         # File Menu
         #--------------
         fileMenu = wx.Menu()
-        newFileItem  = fileMenu.Append(wx.ID_NEW,  '&New\tCTRL+N',  "Create New File"); self.Bind(wx.EVT_MENU, self.filler, newFileItem) # New TODO
+        newFileItem  = fileMenu.Append(wx.ID_NEW,  '&New\tCTRL+N',  "Create New File"); self.Bind(wx.EVT_MENU, self.new, newFileItem) # New TODO
         openFileItem = fileMenu.Append(wx.ID_OPEN, '&Open\tCTRL+O', "Open File"); self.Bind(wx.EVT_MENU, self.open, openFileItem) # Open
         saveFileItem = fileMenu.Append(wx.ID_SAVE, '&Save\tCTRL+S', "Save File"); self.Bind(wx.EVT_MENU, self.save, saveFileItem) # Save
         saveAsFileItem = fileMenu.Append(wx.ID_SAVEAS, '&Save As\tCTRL+SHIFT+S', "Save As File"); self.Bind(wx.EVT_MENU, self.save_as, saveAsFileItem) # Save As
@@ -90,6 +90,12 @@ class Window(wx.Frame):
     
     def filler(self, _e = None): pass
 
+    def new(self, _e = None):
+        self._new_file()
+    
+    def _new_file(self):
+        self.canvas.clear_all()
+
     ## Function called through File > Save or CTRL+S
     def save(self, _e = None):
         if self.current_file_directory:
@@ -119,14 +125,27 @@ class Window(wx.Frame):
         try:
             with open(dir, 'w') as f:
                 file = {
-                    "widgets":[]
+                    "widgets":[],
+                    "links":[]
                 }
 
+                popples: list = self.canvas.get_popples()
                 for _, v in enumerate(self.canvas.get_popples()):
-                    v_data = v.get_file_data()
-                    file['widgets'].append(v_data)
+                    if isinstance(v, Popple):
+                        v_data = v.get_file_data()
+                        file['widgets'].append(v_data)
 
-                # TODO - Add connections to the save file.
+                for _,v in enumerate(self.canvas.get_popple_connections()):
+                    if isinstance(v, PoppleConnection):
+                        try:
+                            popples.index(v.widget1)
+                            v_data = {
+                                'widget1':popples.index(v.widget1),
+                                'widget2':popples.index(v.widget2)
+                            }
+                            file['links'].append(v_data)
+                        except IndexError:
+                            pass
                 f.write(json.dumps(file))
                 
             self.current_file_directory = dir
@@ -157,10 +176,16 @@ class Window(wx.Frame):
                 file = json.loads(f.read())
         except IOError: print('save failed'); return
         
+        self.canvas.clear_all()
+        popples: list[Popple] = []
         for _, v in enumerate(file['widgets']):
-            self.canvas.append_popple(Vector2(v['x'],v['y']),Vector2(v['width'], v['height']),v['text'])
+            popples.append(self.canvas.append_popple(Vector2(v['x'],v['y']),Vector2(v['width'], v['height']),v['text']))
         
-        ## TODO - Add Loading to the save file
+        for _, v in enumerate(file['links']):
+            widget1 = popples[v['widget1']]
+            widget2 = popples[v['widget2']]
+            self.canvas.append_popple_connection(widget1,widget2)
+        
         self.current_file_directory = dir
     
     ## Function for closing a file
@@ -221,6 +246,13 @@ class Canvas(wx.Panel):
 
         return position
     
+    def clear_all(self):
+        self.popple_connections = []
+        for i in self.get_popples():
+            i.Destroy()
+        
+        self.Refresh()
+    
     # Adds a new Popple to the field
     def append_popple(self, pos: Vector2, size: Vector2 = Vector2(100,100), text:str=""):
         true_pos = pos - (size*0.5)
@@ -231,8 +263,9 @@ class Canvas(wx.Panel):
             #popple2 = self.append_popple(self.get_mouse_position())
         new_connection = PoppleConnection(popple1, popple2)
         self.popple_connections.append(new_connection)
+        self.Refresh()
 
-    def get_popples(self):
+    def get_popples(self) -> list:
         result = []
         for _, v in enumerate(self.GetChildren()):
             if isinstance(v, Popple):
@@ -266,7 +299,7 @@ class Canvas(wx.Panel):
         self.SetFocusIgnoringChildren()
     
     def onRelease_leftClick(self, event: wx.MouseEvent):
-        print(event.GetEventObject())
+        self.stop_drag()
     
     def on_rightClick(self, event:wx.MouseEvent):
         # Makes it so the camera will be dragged.
@@ -362,6 +395,10 @@ class Canvas(wx.Panel):
     def on_focus_changed(self, event):
         self.update_all_elements()
 
+    BORDER_WIDTH = 3
+    def get_border_width(self) -> int:
+        return round(self.BORDER_WIDTH * self.camera_zoom)
+    
     def on_paint(self, event = None):
         # Create a Paint Device Context
         dc = wx.PaintDC(self)#event.GetEventObject()
@@ -369,7 +406,7 @@ class Canvas(wx.Panel):
         if not gc: return
 
         # make a pen
-        pen = wx.Pen(wx.Colour(255, 0, 0), 3, wx.PENSTYLE_SOLID)
+        pen = wx.Pen(wx.Colour(0, 0, 0), self.get_border_width(), wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
         for i in self.get_popple_connections():
@@ -385,13 +422,15 @@ class Canvas(wx.Panel):
                     widget2_pos = self.get_display_mouse_position()
 
                 path = gc.CreatePath()
-
+                
+                
                 path.MoveToPoint(widget1_pos.x, widget1_pos.y)
                 path.AddLineToPoint(widget2_pos.x, widget2_pos.y)
                 path.CloseSubpath()
 
                 gc.StrokePath(path)
-            gc.Flush()
+        
+        gc.Flush()
     
     def get_focused_popple(self):
         focused_element = self.FindFocus()
@@ -411,6 +450,7 @@ class Canvas(wx.Panel):
             self.set_drag(None)
 
     def set_drag(self, element):
+        old_element = self.drag_element
         self.drag_element = element
         self.drag_mouse_position = self.get_mouse_position()
 
@@ -419,9 +459,28 @@ class Canvas(wx.Panel):
         elif isinstance(element, Popple):
             self.drag_position = element.pos
         elif isinstance(element, PoppleButton):
-            if element.type == PoppleButton.Types.RESIZE:
+            if element.type == PoppleButton.Types.LINK:
+                self.append_popple_connection(self.get_focused_popple())
+            elif element.type == PoppleButton.Types.RESIZE:
                 self.drag_position = self.get_focused_popple().size
-    
+        
+        if isinstance(old_element, PoppleButton):
+            if old_element.type == PoppleButton.Types.LINK:
+                popple_to_link: Popple = None
+                for p in self.get_popples(): # Check if the mouse is in any existing Popples. 
+                    if isinstance(p, Popple):
+                        display_mouse_position = self.get_display_mouse_position()
+                        if p.get_display_rect().Contains(display_mouse_position.x, display_mouse_position.y):
+                            popple_to_link = p
+                            self.Refresh()
+                            break
+            
+                if not popple_to_link: # Create a new Popple if the connection doesn't link to an existing Popple.
+                    popple_to_link = self.append_popple(self.get_mouse_position())
+            
+                for v in self.get_new_connections(): # Link any new connections to the Popple to link.
+                    v.widget2 = popple_to_link
+                
     def get_drag(self):
         return self.drag_element
     
@@ -448,15 +507,29 @@ class Canvas(wx.Panel):
             drag_element.pos = pos
             self.update_all_elements()
         elif isinstance(drag_element, PoppleButton):
+            if drag_element.type == PoppleButton.Types.LINK:
+                self.Refresh()
+            
             if drag_element.type == PoppleButton.Types.RESIZE:
                 focused_popple = self.get_focused_popple()
                 focused_popple.set_size(pos)
                 self.update_all_elements()
 
 class Popple(wx.Panel):
-    def __init__(self, parent, pos: Vector2, size: Vector2, text: str):
-        super().__init__(parent, wx.ID_ANY, style=wx.BORDER_SIMPLE)
-        self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=wx.TE_READONLY|wx.TE_NO_VSCROLL|wx.TE_CENTER|wx.TE_MULTILINE|wx.BORDER_NONE)
+    MINIMUM_SIZE: Vector2 = Vector2(100,100)
+
+    def __init__(self, parent, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
+        super().__init__(parent, wx.ID_ANY, style=wx.BORDER_NONE)
+
+        textCtrl_style = (
+            wx.TE_READONLY|
+            wx.TE_NO_VSCROLL|
+            wx.TE_CENTER|
+            wx.TE_MULTILINE|
+            wx.BORDER_NONE
+        )
+
+        self.textCtrl: wx.TextCtrl = wx.TextCtrl(self, wx.ID_ANY, text, style=textCtrl_style)
 
         ## TODO - Make sure this works on MacOS
         self.textCtrl.SetFont(wx.Font(
@@ -467,7 +540,6 @@ class Popple(wx.Panel):
             faceName='Calibri'
         ))
 
-        #self.textCtrl.SetBackgroundColour(wx.Colour("#FF0000"))
         self.textCtrl.SetForegroundColour(wx.Colour("#000000"))
         self.SetBackgroundColour(wx.Colour("#FFFFFF"))
         self.textCtrl.SetBackgroundColour(wx.Colour("#FFFFFF"))
@@ -475,7 +547,6 @@ class Popple(wx.Panel):
 
         self.pos: Vector2 = pos
         self.size: Vector2 = size
-        self.update_display()
         
         # A seperate function is used because both the popple and the text element can recieve inputs.
         # I cannot just disable all binds for the textctrl because it needs to be able to get text when it can.
@@ -494,8 +565,17 @@ class Popple(wx.Panel):
         self.Bind(wx.EVT_KILL_FOCUS, self.on_unfocused)
         self.textCtrl.Bind(wx.EVT_SET_FOCUS, self.on_textCtrl_focused)
         self.textCtrl.Bind(wx.EVT_KILL_FOCUS, self.on_textCtrl_unfocused)
+        self.textCtrl.Bind(wx.EVT_KEY_DOWN, self.on_textCtrl_textInput)
+        self.textCtrl.Bind(wx.EVT_TEXT, self.on_textCtrl_text)
+
+        self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.Bind(wx.EVT_WINDOW_CREATE, self.ready)
+        self.update_display()
         #self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
     
+    def ready(self, event:wx.Event):
+        self.update_display()
+        event.Skip()
     # Gets the position of the element relative to the Window.
     def get_display_position(self):
         pos = self.pos
@@ -509,8 +589,8 @@ class Popple(wx.Panel):
 
     def set_size(self, new_size: Vector2):
         self.size = Vector2(
-            max(100, new_size.x),
-            max(100, new_size.y),
+            max(self.MINIMUM_SIZE.x, new_size.x),
+            max(self.MINIMUM_SIZE.y, new_size.y),
         )
     # Gets the size of the element relative to the Window.
     def get_display_size(self):
@@ -527,21 +607,46 @@ class Popple(wx.Panel):
         size = self.get_display_size()
         return wx.Rect(pos.x,pos.y,size.x,size.y)
     
+    def on_textCtrl_textInput(self, event:wx.KeyEvent):
+        #textCtrl_size = Vector2(self.textCtrl.GetSize())
+        #self.textCtrl.SetSize(textCtrl_size.x,textCtrl_size.y + self.textCtrl.GetCharHeight())
+
+        #print(textCtrl_height)
+        event.Skip()
+    
+    def on_textCtrl_text(self, event:wx.CommandEvent):
+        #self.update_display()
+
+        #print(textCtrl_height)
+        event.Skip()
     # Updates the element's appearance on the window itself.
     def update_display(self):
-        posi = self.get_display_position()
-        sizei = self.get_display_size()
-        self.Move(posi.x,posi.y)
-        self.SetSize(sizei.x, sizei.y)
-        self.textCtrl.SetSize(sizei.x, sizei.y)
+        # Updating the Position
+        new_pos = self.get_display_position()
+        self.Move(new_pos.x,new_pos.y)
+
+        # Updating the Size
+        new_size = self.get_display_size()
+        self.SetSize(new_size.x, new_size.y)
         
-        # TODO - Finish having the text scale according to zoom.
         parent = self.GetParent()
-        if isinstance(parent, Canvas):
+
+        if isinstance(parent, Canvas): # Adjusts the size of the text according to Zoom.
             text_font = self.textCtrl.GetFont()
             text_font.SetPointSize(round(12*parent.camera_zoom))
             self.textCtrl.SetFont(text_font)
-        
+
+        textCtrl_newSize: Vector2 = new_size
+        textCtrl_newSize -= parent.get_border_width()*4 # Borderwidth*2 makes the text right on the Border Width.
+        #textCtrl_newSize.y = self.textCtrl.GetBestHeight(textCtrl_newSize.x)
+        print(textCtrl_newSize)
+        self.textCtrl.SetSize(textCtrl_newSize.x, textCtrl_newSize.y)
+
+        # Centers the textCtrl
+        textCtrl_newPos: Vector2 = round((new_size - textCtrl_newSize) * 0.5)
+        self.textCtrl.Move(textCtrl_newPos.x, textCtrl_newPos.y)
+
+        self.Refresh()
         self.Update()
     
     # Used by the file saving system to get the necessary data from this Popple.
@@ -565,7 +670,6 @@ class Popple(wx.Panel):
         if event.LeftDClick():
             self.textCtrl.SetFocus()
             parent = self.get_canvas()
-            parent.stop_drag(self)
         else:
             self.SetFocusIgnoringChildren()
 
@@ -575,8 +679,7 @@ class Popple(wx.Panel):
         #event.Skip()
 
     def onRelease_leftClick(self, event:wx.Event):
-        parent = self.get_canvas()
-        parent.stop_drag(self)
+        self.on_unnecessary_input(event)
     
     def on_mouseMotion(self, event:wx.MouseEvent):
         self.on_unnecessary_input()
@@ -612,8 +715,6 @@ class Popple(wx.Panel):
         event.Skip()
 
     def on_unfocused(self, event:wx.Event):
-        parent = self.get_canvas()
-        parent.stop_drag(self)
         event.Skip()
     
     def get_canvas(self) -> Canvas:
@@ -624,6 +725,27 @@ class Popple(wx.Panel):
 
     def setEditable(self, value: bool):
         self.textCtrl.SetEditable(value)
+    
+    def on_paint(self, event:wx.PaintEvent=None):
+        dc = wx.PaintDC(self)#event.GetEventObject()
+        gc = wx.GraphicsContext.Create(dc)
+        parent = self.get_canvas()
+        if not gc: return
+        
+        border_width = parent.get_border_width()
+        pen = wx.Pen(wx.Colour(0, 0, 0), border_width, wx.PENSTYLE_SOLID)
+        gc.SetPen(pen)
+
+        pos = Vector2(math.floor(border_width*0.5))
+        size = self.get_display_size() - border_width
+
+        gc.DrawRectangle(
+            pos.x,
+            pos.y,
+            size.x,
+            size.y,
+        )
+        gc.Flush()
 
 class PoppleConnection():
     def __init__(self, widget1: Popple, widget2: Popple):
@@ -654,6 +776,7 @@ class PoppleButton(wx.Panel):
         if isinstance(parent, Canvas):
             return parent
         return None
+    
     def get_focused_popple(self):
         parent = self.get_canvas()
         
@@ -702,18 +825,13 @@ class PoppleButton(wx.Panel):
         print(event.GetEventObject())
     
     def on_leftClick(self, event):
-        print("hey")
         parent = self.get_canvas()
         focused_popple = self.get_focused_popple()
         if not isinstance(focused_popple, Popple):
             return
         
-        print("hey")
-        if self.type == self.Types.LINK:
-            parent.append_popple_connection(focused_popple)
-        elif self.type == self.Types.RESIZE:
-            parent = self.get_canvas()
-            parent.start_drag(self)
+        parent = self.get_canvas()
+        parent.start_drag(self)
     
     def onRelease_leftClick(self, event:wx.MouseEvent):
         parent = self.get_canvas()
@@ -721,20 +839,8 @@ class PoppleButton(wx.Panel):
             return
         print(event.GetEventObject())
         if self.type == self.Types.LINK:
-            popple_to_link: Popple = None
-            for p in parent.get_popples(): # Check if the mouse is in any existing Popples. 
-                if isinstance(p, Popple):
-                    display_mouse_position = parent.get_display_mouse_position()
-                    if p.get_display_rect().Contains(display_mouse_position.x, display_mouse_position.y):
-                        popple_to_link = p
-                        parent.Refresh()
-                        break
-            
-            if not popple_to_link: # Create a new Popple if the connection doesn't link to an existing Popple.
-                popple_to_link = parent.append_popple(parent.get_mouse_position())
-            
-            for v in parent.get_new_connections(): # Link any new connections to the Popple to link.
-                v.widget2 = popple_to_link
+            parent = self.get_canvas()
+            parent.stop_drag(self)
         elif self.type == self.Types.RESIZE:
             parent = self.get_canvas()
             parent.stop_drag(self)
@@ -743,4 +849,20 @@ class PoppleButton(wx.Panel):
 APP = wx.App(True)
 frame = Window(None)
 frame.Show()
-APP.MainLoop()
+
+if __name__ == '__main__':
+    import signal # This is for exiting the program safely if it is killed in terminal
+    import sys
+
+    def handle_sigint(signum, frame):
+        # Handles Ctrl+C by attempting to exit the wxPython main loop safely.
+        wx.CallAfter(wx.GetApp().ExitMainLoop)
+    
+    signal.signal(signal.SIGINT, handle_sigint)
+
+    try:
+        APP.MainLoop()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sys.exit(0)

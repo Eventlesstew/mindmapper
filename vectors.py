@@ -29,8 +29,11 @@ class Vector2:
     def __trunc__(self):
         return Vector2(math.trunc(self.x), math.trunc(self.y))
     
-    def __round__(self, v):
-        return Vector2(round(self.x,v), round(self.y,v))
+    def __round__(self, v=None):
+        if v:
+            return Vector2(round(self.x,v), round(self.y,v))
+        else:
+            return Vector2(round(self.x), round(self.y))
     
     def __abs__(self):
         return Vector2(abs(self.x), abs(self.y))
