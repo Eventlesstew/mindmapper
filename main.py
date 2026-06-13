@@ -226,7 +226,7 @@ class Canvas(wx.Panel):
         self.drag_mouse_position: Vector2 = None
         self.drag_position: Vector2 = None
 
-        self.popple_connections = []
+        self.popple_connections: list[PoppleConnection]= []
 
     # Gets the mouse position relative to the window.
     def get_display_mouse_position(self) -> Vector2:
@@ -265,6 +265,16 @@ class Canvas(wx.Panel):
         self.popple_connections.append(new_connection)
         self.Refresh()
 
+    def remove_popple(self, popple):
+        if isinstance(popple, Popple):
+            def filter_func(v: PoppleConnection):
+                if v.widget1 == popple or v.widget2 == popple:
+                    return False
+                return True
+            
+            self.popple_connections = list(filter(filter_func, self.popple_connections))
+            popple.Destroy()
+    
     def get_popples(self) -> list:
         result = []
         for _, v in enumerate(self.GetChildren()):
@@ -825,24 +835,24 @@ class PoppleButton(wx.Panel):
         print(event.GetEventObject())
     
     def on_leftClick(self, event):
-        parent = self.get_canvas()
         focused_popple = self.get_focused_popple()
         if not isinstance(focused_popple, Popple):
             return
         
-        parent = self.get_canvas()
-        parent.start_drag(self)
+        if self.type == PoppleButton.Types.DELETE:
+            pass
+        else:
+            parent = self.get_canvas()
+            parent.start_drag(self)
     
     def onRelease_leftClick(self, event:wx.MouseEvent):
         parent = self.get_canvas()
         if (not isinstance(parent, Canvas)):
             return
         print(event.GetEventObject())
-        if self.type == self.Types.LINK:
-            parent = self.get_canvas()
-            parent.stop_drag(self)
-        elif self.type == self.Types.RESIZE:
-            parent = self.get_canvas()
+        if self.type == self.Types.DELETE:
+            parent.remove_popple(parent.get_focused_popple())
+        else:
             parent.stop_drag(self)
 
 
