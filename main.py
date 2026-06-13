@@ -20,12 +20,12 @@ class Window(wx.Frame):
 
         wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
-        PoppleButton(self.canvas, PoppleButton.Types.DELETE, Vector2(0,0))
+        PoppleButton(self.canvas, PoppleButton.Types.DELETE, Vector2(1,0))
         PoppleButton(self.canvas, PoppleButton.Types.RESIZE, Vector2(1,1))
-        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,0))
-        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,1))
-        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0,0.5))
-        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(1,0.5))
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,0), PoppleButton.SubTypes.LINK_UP)
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0.5,1), PoppleButton.SubTypes.LINK_DOWN)
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(0,0.5), PoppleButton.SubTypes.LINK_LEFT)
+        PoppleButton(self.canvas, PoppleButton.Types.LINK, Vector2(1,0.5), PoppleButton.SubTypes.LINK_RIGHT)
             #self.panel.Bind(wx.EVT_GESTURE_ZOOM, self.OnZoom)
         # Menu Bar
         ##-------------
@@ -73,7 +73,8 @@ class Window(wx.Frame):
                 
             self.current_file_directory = dir
         except IOError:
-            print('save failed')
+            pass
+            # TODO - Add a popup to indicate that saving the config has failed.
 
     def _load_config(self):
         dir = self.get_config_path()
@@ -85,7 +86,8 @@ class Window(wx.Frame):
                 self.SetSize(file['x'],file['y'],file['w'],file['h'])
                 
         except IOError:
-            print('load failed')
+            pass
+            # TODO - Add a popup to indicate that loading the config has failed.
 
     
     def filler(self, _e = None): pass
@@ -150,7 +152,8 @@ class Window(wx.Frame):
                 
             self.current_file_directory = dir
         except IOError:
-            print('save failed')
+            pass
+            # TODO - Add a popup to indicate that saving the file has failed.
     
     ## Function called through File > Open or CTRL+O
     def open(self, _e = None):
@@ -174,7 +177,9 @@ class Window(wx.Frame):
         try:
             with open(dir, 'r') as f:
                 file = json.loads(f.read())
-        except IOError: print('save failed'); return
+        except IOError: 
+            # TODO - Add a popup to indicate that loading the file has failed.
+            return
         
         self.canvas.clear_all()
         popples: list[Popple] = []
@@ -198,7 +203,7 @@ class Canvas(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent = parent)
         self.SetDoubleBuffered(True)
-        self.SetBackgroundColour("#ffffff")
+        self.SetBackgroundColour("#afe2ff")
 
         self.camera_pos: float = Vector2()
         self.camera_zoom: float = 1.0
@@ -649,7 +654,6 @@ class Popple(wx.Panel):
         textCtrl_newSize: Vector2 = new_size
         textCtrl_newSize -= parent.get_border_width()*4 # Borderwidth*2 makes the text right on the Border Width.
         #textCtrl_newSize.y = self.textCtrl.GetBestHeight(textCtrl_newSize.x)
-        print(textCtrl_newSize)
         self.textCtrl.SetSize(textCtrl_newSize.x, textCtrl_newSize.y)
 
         # Centers the textCtrl
@@ -762,25 +766,51 @@ class PoppleConnection():
         self.widget1 = widget1
         self.widget2 = widget2
         
-class PoppleButton(wx.Panel):
+class PoppleButton(wx.StaticBitmap):
     class Types(Enum):
         NONE = -1
         DELETE = 0
         LINK = 1
         RESIZE = 2
     
-    def __init__(self, parent: wx.Window, type: int, anchor: Vector2 = (0,0)):
+    class SubTypes(Enum):
+        DEFAULT = 0
+        LINK_UP = 0
+        LINK_DOWN = 1
+        LINK_LEFT = 2
+        LINK_RIGHT = 3
+
+    def __init__(self, parent: wx.Window, type: int, anchor: Vector2 = (0,0), subType: int = 0):
         super().__init__(parent, style=wx.BORDER_NONE)
         self.type = type
+        self.subtype = subType
         self.anchor: Vector2 = anchor
-        self.SetBackgroundColour('#ff0000')
+        self.SetBackgroundColour("#0084FF")
 
         self.size: Vector2 = Vector2(20,20)
 
         self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
         self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
         self.Bind(wx.EVT_SET_FOCUS, self.on_focused)
+        
+        self.bitmap = wx.Bitmap(self.get_texture_path())
 
+    def get_texture_path(self):
+        image_path = ""
+        if self.type == PoppleButton.Types.DELETE:
+            image_path = "assets/textures/delete.png"
+        elif self.type == PoppleButton.Types.RESIZE:
+            image_path = "assets/textures/resize.png"
+        elif self.type == PoppleButton.Types.LINK:
+            if self.subtype == PoppleButton.SubTypes.LINK_UP:
+                image_path = "assets/textures/uparrow.png"
+            elif self.subtype == PoppleButton.SubTypes.LINK_DOWN:
+                image_path = "assets/textures/downarrow.png"
+            elif self.subtype == PoppleButton.SubTypes.LINK_LEFT:
+                image_path = "assets/textures/leftarrow.png"
+            elif self.subtype == PoppleButton.SubTypes.LINK_RIGHT:
+                image_path = "assets/textures/rightarrow.png"
+        return image_path
     def get_canvas(self) -> Canvas:
         parent = self.GetParent()
         if isinstance(parent, Canvas):
@@ -824,6 +854,12 @@ class PoppleButton(wx.Panel):
 
         pos = pos.get_Vector2i()
         self.Move(pos.x, pos.y)
+
+        bitmap = self.bitmap
+        image = bitmap.ConvertToImage()
+        image = image.Scale(size.x, size.y)
+        new_bitmap = wx.Bitmap(image)
+        self.SetBitmap(new_bitmap)
     
     def AcceptsFocus(self):
         return False
@@ -832,7 +868,7 @@ class PoppleButton(wx.Panel):
         return False
     
     def on_focused(self, event: wx.FocusEvent):
-        print(event.GetEventObject())
+        pass
     
     def on_leftClick(self, event):
         focused_popple = self.get_focused_popple()
@@ -849,11 +885,11 @@ class PoppleButton(wx.Panel):
         parent = self.get_canvas()
         if (not isinstance(parent, Canvas)):
             return
-        print(event.GetEventObject())
         if self.type == self.Types.DELETE:
             parent.remove_popple(parent.get_focused_popple())
         else:
             parent.stop_drag(self)
+        
 
 
 APP = wx.App(True)
