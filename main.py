@@ -2,7 +2,11 @@ import wx
 import json
 from enum import *
 from vectors import *
+# CONTEXT
+# The textboxes in the program are called Popples internally.
+# I called them that due to this program's similarities with the Popplet app/website.
 
+# The filetypes used for saving and loading.
 FILETYPES = "JSON File (*.json)|*.json|All files (*.*)|*.json"
 
 class Window(wx.Frame):
@@ -641,7 +645,6 @@ class Popple(wx.Panel):
         Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
         Bind(wx.EVT_LEFT_DCLICK, self.on_leftClick)
         Bind(wx.EVT_MOTION, self.on_unnecessary_input)
-        Bind(wx.EVT_KEY_DOWN, self.on_key)
         Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
         Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
 
@@ -778,48 +781,47 @@ class Popple(wx.Panel):
                 parent.start_drag(self)
         #event.Skip()
 
+    # Propagates this up to the Canvas
     def onRelease_leftClick(self, event:wx.Event):
         self.on_unnecessary_input(event)
-    
+
+    # Propagates this up to the Canvas
     def on_mouseMotion(self, event:wx.MouseEvent):
         self.on_unnecessary_input()
         #event.Skip()
     
+    # Propagates this up to the Canvas
     def on_mouseWheel(self, event:wx.MouseEvent):
         self.on_unnecessary_input(event)
     
-    def on_key(self, event:wx.KeyEvent):
-        keyCode = event.GetKeyCode()
-        #if keyCode == wx.KeyCode.WXK_BACK:
-        #    print(self.textCtrl.IsEditable())
-            #if self.textCtrl.IsEditable():
-            #    pass
-            #else:
-            #    self.Destroy()
-        
-        event.Skip()
-    
+    # Use this instead of HasFocus so the textCtrl is taken into account.
     def hasFocus(self) -> bool:
         return self.textCtrl.HasFocus() or self.HasFocus()
 
+    # Occurs if the TextCtrl is focused. (Text edit mode)
     def on_textCtrl_focused(self, event:wx.Event):
         self.setEditable(True)
         event.Skip()
 
+    # Occurs if the TextCtrl loses focus. (Text edit disabled)
     def on_textCtrl_unfocused(self, event:wx.Event):
         self.setEditable(False)
         event.Skip()
     
+    # Occurs when the Popple itself is focused.
     def on_focused(self, event:wx.Event):
         self.Raise()
         event.Skip()
 
+    # Occurs when the Popple itself loses focus.
     def on_unfocused(self, event:wx.Event):
         event.Skip()
 
+    # Sets editability of the textCtrl.
     def setEditable(self, value: bool):
         self.textCtrl.SetEditable(value)
     
+    # Renders Borders.
     def on_paint(self, event:wx.PaintEvent=None):
         dc = wx.PaintDC(self)#event.GetEventObject()
         gc = wx.GraphicsContext.Create(dc)
@@ -841,10 +843,16 @@ class Popple(wx.Panel):
         )
         gc.Flush()
 
+# The lines connecting between Popples.
+# They're not based on wx.Panel because I didn't find that necessary.
 class PoppleConnection():
+    ## TODO - Make things such as getting position related to the Connection.
     def __init__(self, widget1: Popple, widget2: Popple):
         self.widget1 = widget1
         self.widget2 = widget2
+    
+    # TODO - Add a function to determine if the mouse cursor is touching the line.
+    # Should have some code in the Pygame version that I can translate to here.
         
 class PoppleButton(wx.StaticBitmap):
     class Types(Enum):
