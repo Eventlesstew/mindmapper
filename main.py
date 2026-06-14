@@ -203,9 +203,13 @@ class Window(wx.Frame):
         return self._canvas
 
 class Canvas(wx.Panel):
+    # TODO - Make it so the canvas can check if it's been modified from the original file.
+    # This should be done as a boolean when anything is modified.
+
     def __init__(self, parent):
         super().__init__(parent = parent)
-        self.SetDoubleBuffered(True)
+        self.SetDoubleBuffered(True) # This is necessary to ensure the popples can properly overlap eachother without causing issues.
+
         self.SetBackgroundColour("#afe2ff")
 
         self.camera_pos: float = Vector2()
@@ -442,15 +446,20 @@ class Canvas(wx.Panel):
     def on_focus_changed(self, event):
         self.update_all_elements()
 
+    # This constant specifies the internal border width.
     BORDER_WIDTH = 3
+
+    # Returns the width of the border with camera zooming taken into account.
     def get_border_width(self) -> int:
         return round(self.BORDER_WIDTH * self.camera_zoom)
     
+    # Re-renders the rendering of Popple Connections
     def on_paint(self, event = None):
-        # Create a Paint Device Context
-        dc = wx.PaintDC(self)#event.GetEventObject()
+        dc = wx.PaintDC(self)
+
+        # Using a Graphics Context because it has functions to allow shape drawing and also uses antialiasing.
         gc = wx.GraphicsContext.Create(dc)
-        if not gc: return
+        if not gc: return # TODO - Make it so the program properly handles when Graphics Context is not usable.
 
         # make a pen
         pen = wx.Pen(wx.Colour(0, 0, 0), self.get_border_width(), wx.PENSTYLE_SOLID)
@@ -479,6 +488,7 @@ class Canvas(wx.Panel):
         
         gc.Flush()
     
+    # Gets the currently focused popple if there is one.
     def get_focused_popple(self):
         focused_element = self.FindFocus()
         if isinstance(focused_element, Popple):
@@ -489,13 +499,17 @@ class Canvas(wx.Panel):
             if isinstance(focused_element_parent, Popple):
                 return focused_element_parent
     
+    # Starts dragging of an element.
     def start_drag(self, element):
         self.set_drag(element)
     
+    # Stops dragging of an element.
     def stop_drag(self, element = None):
+        # If element isn't None, only stops dragging the element itself to prevent interference with other items being dragged.
         if (not element) or element == self.drag_element:
             self.set_drag(None)
 
+    # Sets which item is being dragged.
     def set_drag(self, element):
         old_element = self.drag_element
         self.drag_element = element
@@ -527,10 +541,12 @@ class Canvas(wx.Panel):
             
                 for v in self.get_new_connections(): # Link any new connections to the Popple to link.
                     v.widget2 = popple_to_link
-                
+    
+    # Gets the item being dragged.
     def get_drag(self):
         return self.drag_element
     
+    # Moves the dragged item around. This behaviour varies depending on the object.
     def move_drag(self):
         drag_element = self.drag_element
 
@@ -547,16 +563,24 @@ class Canvas(wx.Panel):
         
         pos = self.drag_position + mouse_dist
 
+        # If dragging the canvas, move the camera around.
         if drag_element == self:
             self.move_camera_to(pos) # Properly updates Camera position
         
+        # Drags the Popple's position around
         elif isinstance(drag_element, Popple):
             drag_element.pos = pos
             self.update_all_elements()
+        
+        # Causes different behaviours depending on the Button's type.
         elif isinstance(drag_element, PoppleButton):
+
+            # Link Button
             if drag_element.type == PoppleButton.Types.LINK:
+                # Since the PoppleConnection following the mouse is rendered visually, just give the program an update.
                 self.Refresh()
             
+            # Resize button - Resizes the Popple
             if drag_element.type == PoppleButton.Types.RESIZE:
                 focused_popple = self.get_focused_popple()
                 focused_popple.set_size(pos)
@@ -575,6 +599,9 @@ class Popple(wx.Panel):
     # The minimum size that the Popple can be at.
     MINIMUM_SIZE: Vector2 = Vector2(150,100)
 
+    # The font size used for the text. 
+    FONT_SIZE = 14
+
     def __init__(self, parent, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
         super().__init__(parent, wx.ID_ANY, style=wx.BORDER_NONE)
 
@@ -590,7 +617,7 @@ class Popple(wx.Panel):
 
         ## TODO - Make sure this works on MacOS
         self.textCtrl.SetFont(wx.Font(
-            pointSize=14, 
+            pointSize=self.FONT_SIZE, 
             family=wx.FONTFAMILY_DEFAULT, 
             style=wx.FONTSTYLE_NORMAL, 
             weight=wx.FONTWEIGHT_NORMAL, 
@@ -664,6 +691,7 @@ class Popple(wx.Panel):
 
         return size.get_Vector2i()
     
+    # Gets the rect of the Popple relative to the window. (Contains Position and Size)
     def get_display_rect(self) -> wx.Rect:
         pos = self.get_display_position()
         size = self.get_display_size()
@@ -702,7 +730,7 @@ class Popple(wx.Panel):
 
         if isinstance(parent, Canvas): # Adjusts the size of the text according to Zoom.
             text_font = self.textCtrl.GetFont()
-            text_font.SetPointSize(round(12*parent.camera_zoom))
+            text_font.SetPointSize(round(self.FONT_SIZE*parent.camera_zoom))
             self.textCtrl.SetFont(text_font)
 
         textCtrl_newSize: Vector2 = new_size
@@ -729,15 +757,19 @@ class Popple(wx.Panel):
         }
         return data
 
-    def on_unnecessary_input(self, event:wx.Event): # Overrides default behaviour and allows the canvas to manage mousewheel functions.
+    # Overrides default behaviour and propagates it to the Canvas.
+    def on_unnecessary_input(self, event:wx.Event):
         parent = self.GetParent()
         if isinstance(parent, Canvas):
             parent.GetEventHandler().ProcessEvent(event)
 
     def on_leftClick(self, event:wx.MouseEvent):
+        # Activates Text Input
         if event.LeftDClick():
             self.textCtrl.SetFocus()
             parent = get_canvas()
+        
+        # Dragging the Popple.
         else:
             self.SetFocusIgnoringChildren()
 
