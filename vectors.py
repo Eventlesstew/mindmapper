@@ -1,18 +1,18 @@
 import math
-import wx
 
+# This contains the code needed for Vector2 stuff.
+# Decided to make my own program here because I prefer working with my own things and not fighting with Pygame or wxpython's code.
 class Vector2:
-    def __init__(self, x: float|int|list|tuple|wx.Point|wx.Size = None, y: float|int = None):
+    ## Supports things from various extensions if possible.
+    def __init__(self, x: float|int|list|tuple = None, y: float|int = None):
         
         self.x: float|int = 0.0
         self.y: float|int = 0.0
         
+        
         if x == None:
             pass
-        elif isinstance(x,wx.Size):
-            self.x = x.GetWidth()
-            self.y = x.GetHeight()
-        elif isinstance(x,Vector2) or isinstance(x,wx.Point):
+        elif isinstance(x,Vector2):
             self.x = x.x
             self.y = x.y
         elif isinstance(x,list) or isinstance(x,tuple):
@@ -25,6 +25,29 @@ class Vector2:
                 self.y = x
             else:
                 self.y = y
+        
+        # Support for imported programs.
+        else:
+            # wx.Size
+            try:
+                from wx import Size # Import the specific class here.
+
+                # Perform calculations here.
+                if isinstance(x,Size):
+                    self.x = x.GetWidth()
+                    self.y = x.GetHeight()
+            except ModuleNotFoundError: # try and except allows this to work if the import is not present.
+                pass
+                
+            # wx.Point
+            try:
+                from wx import Point
+                if isinstance(x,Point):
+                    self.x = x.x
+                    self.y = x.y
+            
+            except ModuleNotFoundError:
+                pass
     
     def __trunc__(self):
         return Vector2(math.trunc(self.x), math.trunc(self.y))
@@ -127,21 +150,31 @@ class Vector2:
     def get_tuple(self): return (self.x, self.y)
     def get_Vector2i(self): return Vector2(int(self.x),int(self.y))
 
-class Rect2:
-    def __init__(self, x: float|int|list|tuple|Vector2 = None, y: float|int|list|tuple|Vector2 = None, w: float|int = None, h: float|int = None):
-        self.position: Vector2 = Vector2()
-        self.size: Vector2 = Vector2()
+    def min(self, value):
+        value_vec = Vector2(value)
+        result = Vector2(
+            min(self.x, value_vec.x),
+            min(self.y, value_vec.y)
+        )
+        return result
 
-        if x == None:
-            pass
-        elif isinstance(x,float) or isinstance(x,int):
-            self.position = Vector2(x,y)
-            self.size = Vector2(w,h)
-        elif isinstance(x,Vector2):
-            self.position = x
-            self.size = y
-        elif isinstance(x,list) or isinstance(x,tuple):
-            self.position = Vector2(x)
+    def max(self, value):
+        value_vec = Vector2(value)
+        result = Vector2(
+            max(self.x, value_vec.x),
+            max(self.y, value_vec.y)
+        )
+        return result
+
+    def clamp(self, min, max):
+        min_vec = Vector2(min)
+        max_vec = Vector2(max)
+        
+        result = Vector2(
+            max(max_vec.x, min(self.x, min_vec.x)),
+            max(max_vec.y, min(self.y, min_vec.y))
+        )
+        return result
 
 if __name__ == "__main__":
     print(abs(Vector2((1, 3))))
