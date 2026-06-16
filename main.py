@@ -22,7 +22,7 @@ class Window(wx.Frame):
         self.current_file_directory = None
         self.recent_file_directory = None # Currently unused, meant for the Open Recent function.
 
-        wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
+        #wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
         PoppleButton(self._canvas, PoppleButton.Types.DELETE, Vector2(1,0))
         PoppleButton(self._canvas, PoppleButton.Types.RESIZE, Vector2(1,1))
@@ -230,12 +230,15 @@ class Canvas(wx.Panel):
         
         self.Bind(wx.EVT_CHILD_FOCUS, self.on_focus_changed)
         APP.Bind(wx.EVT_MOTION, self.on_mouseMotion)
-        APP.Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
 
         self.Bind(wx.EVT_PAINT, self.on_paint)
 
+        # TODO - Add more uses for touch gestures.
         if self.EnableTouchEvents(wx.TOUCH_ZOOM_GESTURE):
-            self.Bind(wx.EVT_GESTURE_ZOOM, self.on_mouseWheel)
+            self.Bind(wx.EVT_GESTURE_ZOOM, self.onGesture_zoom)
+            APP.Bind(wx.EVT_MOUSEWHEEL, self.onGesture_pan)
+        else:
+            APP.Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
 
         self.original_zoom_factor = None
         self.drag_element = None
@@ -337,6 +340,11 @@ class Canvas(wx.Panel):
     # Sets focus to itself so the focus is on no popples. (Focus cannot be set to nothing.)
     def on_leftClick(self, event: wx.MouseEvent):
         self.SetFocusIgnoringChildren()
+
+        for i in self.get_popple_connections():
+            if isinstance(i, PoppleConnection):
+                if i.is_mouse_touching():
+                    print(i)
     
     # Stops dragging on anything.
     def onRelease_leftClick(self, event: wx.MouseEvent):
@@ -355,7 +363,7 @@ class Canvas(wx.Panel):
     # "new connections" refers to the Popple Connections that have
     def remove_new_connections(self):
         def filter_func(n: PoppleConnection):
-            if n.widget2:
+            if n.is_new():
                 return True
             return False
         
@@ -381,31 +389,53 @@ class Canvas(wx.Panel):
     
     # Actions for when the Mouse Wheel is being used.
     # Also occurs for any 2+ finger gestures on Macbook.
-    def on_mouseWheel(self, event: wx.Event):
 
-        # Zooming Gesture
-        if isinstance(event, wx.ZoomGestureEvent):
-            if self.original_zoom_factor and not event.IsGestureStart():
-                distance = event.GetZoomFactor() - self.original_zoom_factor
-                self.zoom_camera(distance)
-            self.original_zoom_factor = event.GetZoomFactor()
-
-        # Panning Gesture
-        elif isinstance(event, wx.PanGestureEvent):
-            delta = event.GetDelta()
-            movement = Vector2(delta)
-            
-            self.move_camera(movement)
+    # Using the Zoom Gesture (Pinching or Spreading two fingers.)
+    def onGesture_zoom(self, event:wx.ZoomGestureEvent):
         
-        # Mouse Wheel
-        elif isinstance(event, wx.MouseEvent):
-            amount = event.GetWheelRotation()
+        if event.IsGestureStart():
+            self.original_zoom_factor = event.GetZoomFactor()
+        elif event.IsGestureEnd():
+            self.original_zoom_factor = None
+        elif self.original_zoom_factor:
+            zoom_factor = event.GetZoomFactor()
+            distance = zoom_factor - self.original_zoom_factor
+            self.original_zoom_factor = zoom_factor
+            self.zoom_camera(distance, Vector2(event.GetPosition()))
+    
+    # Using the Pan Gesture (Moving two fingers around.)
+    def onGesture_pan(self, event:wx.MouseEvent):
+        amount = Vector2()
+        axis = event.GetWheelAxis()
+        if axis == 0: # Y axis
+            amount.y = event.GetWheelRotation()
+        if axis == 1: # X axis
+            amount.x = -event.GetWheelRotation()
 
-            self.zoom_camera(amount * 0.001)
+            # Checks if the scroll wheel is inverted
+            # Necessary for ensuring consistency with natural scroll settings in MacOS.
+            if event.IsWheelInverted():
+                amount.x *= -1
+
+        movement = amount
+        
+        self.move_camera(movement)
+
+    def on_mouseWheel(self, event: wx.MouseEvent):
+        # Mouse Wheel
+        amount = event.GetWheelRotation()
+
+        self.zoom_camera(amount * 0.001)
     
     # Zooms camera by a specified amount
-    def zoom_camera(self, amount: float):
-        old_mouse_pos = self.get_mouse_position()
+    # If from_position is None, uses mouse position instead.
+    def zoom_camera(self, amount: float, from_position: Vector2 = None):
+        old_mouse_pos = Vector2()
+        if from_position:
+            old_mouse_pos = from_position
+        else:
+            old_mouse_pos = self.get_mouse_position()
+        
         self.camera_zoom += amount
         self.camera_zoom = max(self.camera_zoom, 0.1)
         self.camera_zoom = round(self.camera_zoom*100)/100
@@ -471,15 +501,8 @@ class Canvas(wx.Panel):
 
         for i in self.get_popple_connections():
             if isinstance(i,PoppleConnection):
-                widget1_pos = i.widget1.get_display_position() 
-                widget1_pos += i.widget1.get_display_size() * 0.5
-
-                widget2_pos = Vector2()
-                if i.widget2:
-                    widget2_pos = i.widget2.get_display_position()
-                    widget2_pos += i.widget2.get_display_size() * 0.5
-                else:
-                    widget2_pos = self.get_display_mouse_position()
+                widget1_pos = i.get_widget1_display_position()
+                widget2_pos = i.get_widget2_display_position()
 
                 path = gc.CreatePath()
                 
@@ -851,8 +874,77 @@ class PoppleConnection():
         self.widget1 = widget1
         self.widget2 = widget2
     
-    # TODO - Add a function to determine if the mouse cursor is touching the line.
-    # Should have some code in the Pygame version that I can translate to here.
+    def get_widget1_display_position(self) -> Vector2:
+        return self.get_widget_display_position(self.widget1)
+
+    def get_widget2_display_position(self) -> Vector2:
+        if self.widget2:
+            return self.get_widget_display_position(self.widget2)
+        else:
+            canvas = get_canvas()
+            return canvas.get_display_mouse_position()
+
+    def get_widget_display_position(self, popple: Popple) -> Vector2:
+        pos = popple.get_display_position() 
+        pos += popple.get_display_size() * 0.5
+        return pos
+
+    def get_widget1_position(self) -> Vector2:
+        return self.get_widget_position(self.widget1)
+
+    def get_widget2_position(self) -> Vector2:
+        if self.widget2:
+            return self.get_widget_position(self.widget2)
+        else:
+            canvas = get_canvas()
+            return canvas.get_mouse_position()
+
+    def get_widget_position(self, popple: Popple) -> Vector2:
+        pos = popple.pos 
+        pos += popple.size * 0.5
+        return pos
+    
+    # TODO - Test this.
+    def is_mouse_touching(self):
+        if self.is_new(): return True
+        #line = self.get_line(False)
+        canvas = get_canvas()
+        pos1 = self.get_widget1_display_position()
+        pos2 = self.get_widget2_display_position()
+        posm = Vector2(canvas.get_display_mouse_position())
+        
+        linecheck: float = (
+            ((pos2.x-pos1.x)*(posm.x-pos1.x))+((pos2.y-pos1.y)*(posm.y-pos1.y))
+        )/(
+            ((pos2.x-pos1.x)**2)+((pos2.y-pos1.y)**2)
+        )
+
+        if 0.0 <= linecheck and linecheck <= 1.0:
+            distance: float = abs(
+                    (
+                        (pos2.y-pos1.y)*(posm.x-pos1.x)
+                    )-(
+                        (pos2.x-pos1.x)*(posm.y-pos1.y)
+                    )
+                )/(
+                    ((
+                        (pos2.x-pos1.x)**2
+                    )+(
+                        (pos2.y-pos1.y)**2
+                    ))**0.5
+                )
+
+            distance /= canvas.get_border_width() * 2
+
+            if distance < 1.0:
+                return True
+        
+        return False
+
+    def is_new(self) -> bool:
+        if self.widget2:
+            return False
+        return True
         
 class PoppleButton(wx.StaticBitmap):
     class Types(Enum):
