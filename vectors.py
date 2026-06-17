@@ -146,9 +146,6 @@ class Vector2:
             return True
         else:
             return False
-    
-    def get_tuple(self): return (self.x, self.y)
-    def get_Vector2i(self): return Vector2(int(self.x),int(self.y))
 
     def min(self, value):
         value_vec = Vector2(value)
@@ -175,6 +172,44 @@ class Vector2:
             max(max_vec.y, min(self.y, min_vec.y))
         )
         return result
+    
+    # Returns a copy of itself as a Tuple.
+    def get_as_tuple(self): return (self.x, self.y)
+
+    # Returns a copy of itself with x and y rounded into integer values.
+    def get_as_Vector2i(self): return round(self)
+
+    # Returns a copy of itself as wx.Point. Requires wxPython installed.
+    def get_as_wxPoint(self):
+        try:
+            import wx
+            self_int = self.get_as_Vector2i()
+            return wx.Point(self_int.x, self_int.y)
+        
+        except ModuleNotFoundError:
+            # Error handling if the required module isn't installed.
+            print("Function get_as_wxPoint requires the wxPython Module installed.")
+    
+    # Returns a copy of itself as wx.Size. Requires wxPython installed.
+    def get_as_wxSize(self):
+        try:
+            import wx
+            self_int = self.get_as_Vector2i()
+            return wx.Size(self_int.x, self_int.y)
+
+        except ModuleNotFoundError:
+            # Error handling if the required module isn't installed.
+            print("Function get_as_wxSize requires the wxPython Module installed.")
+
+    # Returns a copy of itself as pygame.Vector2. Requires Pygame installed.
+    def get_as_pgVector2(self):
+        try:
+            import pygame
+            return pygame.Vector2(self.x, self.y)
+
+        except ModuleNotFoundError:
+            # Error handling if the required module isn't installed.
+            print("Function get_as_pgVector2 requires the pygame Module installed.")
 
 if __name__ == "__main__":
     print(abs(Vector2((1, 3))))
