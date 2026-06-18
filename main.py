@@ -24,6 +24,9 @@ class Window(wx.Frame):
         self.current_file_directory = None
         self.recent_file_directory = None # Currently unused, meant for the Open Recent function.
 
+        # TODO - Have it so the window tracks position and size whenever it is unmaximised.
+        # Necessary for allowing maximisation or fullscreen to be maintained.
+
         #wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
         PoppleButton(self._canvas, PoppleButton.Types.DELETE, Vector2(1,0))
