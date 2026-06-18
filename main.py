@@ -773,11 +773,11 @@ class Popple(wx.Panel):
             faceName='Calibri'
         ))
 
-        self.SetBackgroundColour(wx.Colour("#303236"))
+        self.SetBackgroundColour(wx.Colour("#FFFFFF"))
 
         # TODO - Find a way to make this transparent.
-        self.textCtrl.SetBackgroundColour(wx.Colour("#303236"))
-        self.textCtrl.SetForegroundColour(wx.Colour("#FFFFFF"))
+        self.textCtrl.SetBackgroundColour(wx.Colour("#FFFFFF"))
+        self.textCtrl.SetForegroundColour(wx.Colour("#000000"))
         
         self.pos: Vector2 = pos
         self.size: Vector2 = size
