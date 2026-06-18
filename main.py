@@ -29,13 +29,14 @@ class Window(wx.Frame):
 
         #wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
+        # Popple Buttons
         PoppleButton(self._canvas, PoppleButton.Types.DELETE, Vector2(1,0))
         PoppleButton(self._canvas, PoppleButton.Types.RESIZE, Vector2(1,1))
         PoppleButton(self._canvas, PoppleButton.Types.LINK, Vector2(0.5,0), PoppleButton.SubTypes.LINK_UP)
         PoppleButton(self._canvas, PoppleButton.Types.LINK, Vector2(0.5,1), PoppleButton.SubTypes.LINK_DOWN)
         PoppleButton(self._canvas, PoppleButton.Types.LINK, Vector2(0,0.5), PoppleButton.SubTypes.LINK_LEFT)
         PoppleButton(self._canvas, PoppleButton.Types.LINK, Vector2(1,0.5), PoppleButton.SubTypes.LINK_RIGHT)
-            #self.panel.Bind(wx.EVT_GESTURE_ZOOM, self.OnZoom)
+        
         # Menu Bar
         ##-------------
         menuBar = wx.MenuBar()
@@ -57,8 +58,46 @@ class Window(wx.Frame):
         
         self.config = {}
         self.Bind(wx.EVT_CLOSE, self.on_close)
+
+        self.window_pos: Vector2 = Vector2()
+        self.window_size: Vector2 = Vector2()
+        self.window_fullscreen: bool = False
+
+        self.Bind(wx.EVT_MOVE, self.on_windowMoved)
+        self.Bind(wx.EVT_FULLSCREEN, self.on_windowFullscreen)
+        self.Bind(wx.EVT_SIZE, self.on_windowResized)
         self._load_config()
     
+    def on_windowMoved(self, event:wx.Event):
+        print("POS")
+        if self.window_fullscreen:
+            print("Got Fullscreened")
+        elif self.IsMaximized():
+            print("Maximised")
+        elif self.IsFullScreen():
+            print("Fullscreen")
+        else:
+            self.window_pos = self.GetPosition()
+            print(self.window_pos)
+        event.Skip()
+
+    def on_windowFullscreen(self, event:wx.FullScreenEvent):
+        self.window_fullscreen = event.IsFullScreen()
+
+    def on_windowResized(self, event:wx.SizeEvent):
+        print("SIZE")
+        if self.window_fullscreen:
+            print("Got Fullscreened")
+        elif self.IsFullScreen():
+            print("Fullscreen")
+        elif self.IsMaximized():
+            print("Maximised")
+        else:
+            self.window_size = self.GetSize()
+            print(self.window_size)
+            
+        event.Skip()
+
     def get_config_path(self):
         standardPaths = wx.StandardPaths.Get()
         config_root_dir: str = standardPaths.GetUserDataDir()
@@ -69,35 +108,52 @@ class Window(wx.Frame):
         dir = self.get_config_path()
         try:
             with open(dir, 'w') as f:
-                position = self.GetPosition()
-                windowSize = self.GetSize()
+                print(self.window_fullscreen)
                 file = {
-                    "x":position.x,
-                    "y":position.y,
-                    "w":windowSize.x,
-                    "h":windowSize.y,
+                    "x":self.window_pos.x,
+                    "y":self.window_pos.y,
+                    "w":self.window_size.x,
+                    "h":self.window_size.y,
+                    "fullscreen":self.window_fullscreen,
+                    "maximised":self.IsMaximized()
                 }
 
                 f.write(json.dumps(file))
                 
             self.current_file_directory = dir
         except IOError:
-            pass
             # TODO - Add a popup to indicate that saving the config has failed.
+            print("Config saving has failed.")
 
     def _load_config(self):
         dir = self.get_config_path()
+        file: dict = {}
         try:
             with open(dir, 'r') as f:
                 file = json.loads(f.read())
-
-                # Set the size and position of the window.
-                self.SetSize(file['x'],file['y'],file['w'],file['h'])
-                
         except IOError:
-            pass
             # TODO - Add a popup to indicate that loading the config has failed.
+            print("Config loading has failed.")
+        
+        # Window Position
+        self.window_pos = Vector2(
+            file.get('x', 0), 
+            file.get('y', 0)
+        )
+        self.SetPosition(self.window_pos.get_as_wxPoint())
 
+        # Window Size
+        self.window_size = Vector2(
+            file.get('w', 100),
+            file.get('h', 100),
+        )
+        self.SetSize(self.window_size.get_as_wxSize())
+        
+        # TODO - Ensure this works correctly on MacOS.
+        # Fullscreen and maximised.
+        #self.Maximize(file.get('maximised', False))
+        #self.ShowFullScreen(file.get('fullscreen', False))
+            
     
     def filler(self, _e = None): pass
 
