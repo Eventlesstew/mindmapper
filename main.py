@@ -280,7 +280,15 @@ class Canvas(wx.Panel):
         super().__init__(parent = parent)
         self.SetDoubleBuffered(True) # This is necessary to ensure the popples can properly overlap eachother without causing issues.
 
-        self.SetBackgroundColour("#303236")
+        self.config_background_colour = '#303236'
+        self.config_toolbar_background_colour = "#171717"
+        self.config_toolbar_text_colour = "#FFFFFF"
+        self.config_popple_background_colour = "#FFFFFF"
+        self.config_popple_text_colour = "#000000"
+        self.config_popple_border_colour = "#A600FF"
+        self.config_delete_colour = '#ff0000'
+
+        self.SetBackgroundColour(self.config_background_colour)
 
         self.camera_pos: float = Vector2()
         self.camera_zoom: float = 1.0
@@ -349,7 +357,7 @@ class Canvas(wx.Panel):
         if not size: size = Popple.MINIMUM_SIZE
         
         true_pos = pos - (size*0.5)
-        return Popple(self, true_pos, size, text)
+        return Popple(true_pos, size, text)
 
     # Adds a new Popple Connection
     def append_popple_connection(self, popple1, popple2 = None):
@@ -389,6 +397,7 @@ class Canvas(wx.Panel):
             
             self.popple_connections = list(filter(filter_func, self.popple_connections))
             popple.Destroy()
+            refresh()
     
     def remove_popple_connection(self, popple_connection):
         if isinstance(popple_connection, PoppleConnection):
@@ -610,7 +619,7 @@ class Canvas(wx.Panel):
         if not gc: return # TODO - Make it so the program properly handles when Graphics Context is not usable.
 
         # make a pen
-        pen = wx.Pen("#006FB4", self.get_border_width(), wx.PENSTYLE_SOLID)
+        pen = wx.Pen(self.config_popple_border_colour, self.get_border_width(), wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
         for i in self.get_popple_connections():
@@ -751,8 +760,9 @@ class Popple(wx.Panel):
     # The font size used for the text. 
     FONT_SIZE = 14
 
-    def __init__(self, parent, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
-        super().__init__(parent, wx.ID_ANY, style=wx.BORDER_NONE)
+    def __init__(self, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
+        canvas = get_canvas()
+        super().__init__(canvas, wx.ID_ANY, style=wx.BORDER_NONE)
 
         textCtrl_style = (
             wx.TE_READONLY|
@@ -773,11 +783,11 @@ class Popple(wx.Panel):
             faceName='Calibri'
         ))
 
-        self.SetBackgroundColour(wx.Colour("#FFFFFF"))
+        self.SetBackgroundColour(canvas.config_popple_background_colour)
 
         # TODO - Find a way to make this transparent.
-        self.textCtrl.SetBackgroundColour(wx.Colour("#FFFFFF"))
-        self.textCtrl.SetForegroundColour(wx.Colour("#000000"))
+        self.textCtrl.SetBackgroundColour(canvas.config_popple_background_colour)
+        self.textCtrl.SetForegroundColour(canvas.config_popple_text_colour)
         
         self.pos: Vector2 = pos
         self.size: Vector2 = size
@@ -975,7 +985,7 @@ class Popple(wx.Panel):
         if not gc: return
         
         border_width = parent.get_border_width()
-        pen = wx.Pen("#006FB4", border_width, wx.PENSTYLE_SOLID)
+        pen = wx.Pen(parent.config_popple_border_colour, border_width, wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
         pos = Vector2(math.floor(border_width*0.5))
@@ -1108,7 +1118,7 @@ class PoppleButton(wx.StaticBitmap):
         if self.type == PoppleButton.Types.DELETE:
             return "#FF0000"
         else:
-            return "#006FB4"
+            return "#A600FF"
     def get_texture_path(self):
         image_path = ""
         if self.type == PoppleButton.Types.DELETE:
@@ -1229,7 +1239,8 @@ class BottomToolbar(wx.Panel):
 
         self.SetSizer(sizer)
 
-        self.SetBackgroundColour("#1D1F20")
+        ## TODO - Change the text colour in the Static Text.
+        self.SetBackgroundColour(get_canvas().config_toolbar_background_colour)
         self.Show()
         self.Raise()
         self.update_display()
