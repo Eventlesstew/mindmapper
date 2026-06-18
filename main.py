@@ -280,7 +280,7 @@ class Canvas(wx.Panel):
         super().__init__(parent = parent)
         self.SetDoubleBuffered(True) # This is necessary to ensure the popples can properly overlap eachother without causing issues.
 
-        self.SetBackgroundColour("#afe2ff")
+        self.SetBackgroundColour("#303236")
 
         self.camera_pos: float = Vector2()
         self.camera_zoom: float = 1.0
@@ -610,7 +610,7 @@ class Canvas(wx.Panel):
         if not gc: return # TODO - Make it so the program properly handles when Graphics Context is not usable.
 
         # make a pen
-        pen = wx.Pen(wx.Colour(0, 0, 0), self.get_border_width(), wx.PENSTYLE_SOLID)
+        pen = wx.Pen("#006FB4", self.get_border_width(), wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
         for i in self.get_popple_connections():
@@ -773,11 +773,12 @@ class Popple(wx.Panel):
             faceName='Calibri'
         ))
 
-        self.textCtrl.SetForegroundColour(wx.Colour("#000000"))
-        self.SetBackgroundColour(wx.Colour("#FFFFFF"))
-        self.textCtrl.SetBackgroundColour(wx.Colour("#FFFFFF"))
-        
+        self.SetBackgroundColour(wx.Colour("#303236"))
 
+        # TODO - Find a way to make this transparent.
+        self.textCtrl.SetBackgroundColour(wx.Colour("#303236"))
+        self.textCtrl.SetForegroundColour(wx.Colour("#FFFFFF"))
+        
         self.pos: Vector2 = pos
         self.size: Vector2 = size
         
@@ -974,7 +975,7 @@ class Popple(wx.Panel):
         if not gc: return
         
         border_width = parent.get_border_width()
-        pen = wx.Pen(wx.Colour(0, 0, 0), border_width, wx.PENSTYLE_SOLID)
+        pen = wx.Pen("#006FB4", border_width, wx.PENSTYLE_SOLID)
         gc.SetPen(pen)
 
         pos = Vector2(math.floor(border_width*0.5))
@@ -1093,7 +1094,6 @@ class PoppleButton(wx.StaticBitmap):
         self.type = type
         self.subtype = subType
         self.anchor: Vector2 = anchor
-        self.SetBackgroundColour("#0084FF")
 
         self.size: Vector2 = Vector2(20,20)
 
@@ -1101,8 +1101,14 @@ class PoppleButton(wx.StaticBitmap):
         self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
         self.Bind(wx.EVT_SET_FOCUS, self.on_focused)
         
+        self.SetBackgroundColour(self.get_colour())
         self.bitmap = wx.Bitmap(self.get_texture_path())
 
+    def get_colour(self):
+        if self.type == PoppleButton.Types.DELETE:
+            return "#FF0000"
+        else:
+            return "#006FB4"
     def get_texture_path(self):
         image_path = ""
         if self.type == PoppleButton.Types.DELETE:
@@ -1223,7 +1229,7 @@ class BottomToolbar(wx.Panel):
 
         self.SetSizer(sizer)
 
-        self.SetBackgroundColour("#00448E")
+        self.SetBackgroundColour("#1D1F20")
         self.Show()
         self.Raise()
         self.update_display()
