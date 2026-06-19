@@ -870,7 +870,7 @@ class Popple(wx.Panel):
     def on_textCtrl_text(self, event:wx.CommandEvent):
         # Doesn't do anything right now.
 
-        #self.update_display()
+        self.update_display()
 
         #print(textCtrl_height)
         event.Skip()
@@ -887,16 +887,27 @@ class Popple(wx.Panel):
         
         parent = get_canvas()
 
-        if isinstance(parent, Canvas): # Adjusts the size of the text according to Zoom.
-            text_font = self.textCtrl.GetFont()
-            text_font.SetPointSize(round(self.FONT_SIZE*parent.camera_zoom))
-            self.textCtrl.SetFont(text_font)
+        # Adjusts the size of the text according to Zoom.
+        text_font = self.textCtrl.GetFont()
+        text_font.SetPointSize(round(self.FONT_SIZE*parent.camera_zoom))
+        self.textCtrl.SetFont(text_font)
 
         textCtrl_newSize: Vector2 = new_size
         textCtrl_newSize -= parent.get_border_width()*4 # Borderwidth*2 makes the text right on the Border Width.
         #textCtrl_newSize.y = self.textCtrl.GetBestHeight(textCtrl_newSize.x)
         self.textCtrl.SetSize(textCtrl_newSize.x, textCtrl_newSize.y)
 
+        # TODO - Center the text
+        #print("TEST")
+        #text_string = self.textCtrl.GetValue()
+        #print(self.textCtrl.GetTextExtent(text_string))
+
+        #text_string = self.textCtrl.GetValue()
+        
+
+        #print(text_string)
+        #print(self.textCtrl.GetTextExtent())
+        
         # Centers the textCtrl
         textCtrl_newPos: Vector2 = round((new_size - textCtrl_newSize) * 0.5)
         self.textCtrl.Move(textCtrl_newPos.x, textCtrl_newPos.y)
@@ -1078,7 +1089,7 @@ class PoppleConnection():
         if self.widget2:
             return False
         return True
-
+    
     def on_focused(self):
         pass
 
