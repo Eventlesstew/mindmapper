@@ -1250,8 +1250,12 @@ class BottomToolbar(wx.Panel):
 
         self.SetSizer(sizer)
 
+        canvas = get_canvas()
         ## TODO - Change the text colour in the Static Text.
-        self.SetBackgroundColour(get_canvas().config_toolbar_background_colour)
+        self.SetBackgroundColour(canvas.config_toolbar_background_colour)
+        for i in self.GetChildren():
+            if isinstance(i, wx.StaticText):
+                i.SetForegroundColour(canvas.config_toolbar_text_colour)
         self.Show()
         self.Raise()
         self.update_display()
