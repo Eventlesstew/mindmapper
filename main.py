@@ -273,8 +273,8 @@ class Window(wx.Frame):
 
         self._open_file(dir)
 
-    ## Function for opening a file
     def _open_file(self, dir: str):
+        """Function for opening a file"""
 
         file = {}
         try:
@@ -314,6 +314,7 @@ class Window(wx.Frame):
         self._toolbar.update_display()
 
 
+# TODO - Move this to it's own window
 class BottomToolbar(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent, size=wx.Size(1, 40))
