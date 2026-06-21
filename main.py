@@ -314,7 +314,7 @@ class Window(wx.Frame):
         self._toolbar.update_display()
 
 
-# TODO - Move this to it's own window
+# TODO - Move this to it's own file
 class BottomToolbar(wx.Panel):
     def __init__(self, parent):
         super().__init__(parent, size=wx.Size(1, 40))
