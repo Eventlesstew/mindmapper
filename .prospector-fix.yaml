@@ -1,7 +1,0 @@
-inherits:
-  - .prospector.yaml
-
-ruff:
-  options:
-    fix: true
-    unsafe-fixes: true

@@ -1,7 +1,10 @@
 import wx
 import json
 from enum import *
-from vectors import *
+from functions.vectors import *
+from canvas.canvas import *
+from canvas.canvas_elements import *
+from functions.menubar import Window_Menubar
 
 # CONTEXT
 # The textboxes in the program are called Popples internally.
@@ -34,110 +37,72 @@ class Window(wx.Frame):
         wx.Font.AddPrivateFont("assets/fonts/calibri-regular.ttf")
 
         self._create_popple_buttons()
-        self._create_menubar()
 
         self.config = {}
-        self.Bind(wx.EVT_CLOSE, self.on_close)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
 
         self._window_pos = Vector2()
         self._window_size: Vector2 = Vector2()
         self._window_fullscreen = False
 
-        self.Bind(wx.EVT_MOVE, self._on_windowMoved)
-        self.Bind(wx.EVT_SIZE, self._on_windowResized)
-        self.Bind(wx.EVT_FULLSCREEN, self._on_windowFullscreen)
         self._load_config()
+        self.SetMenuBar(Window_Menubar())
+
+        self.Bind(wx.EVT_MOVE, self._on_window_moved)
+        self.Bind(wx.EVT_SIZE, self._on_window_resized)
+        self.Bind(wx.EVT_FULLSCREEN, self._on_window_fullscreen)
 
     def _create_popple_buttons(self):
-        PoppleButton(self._canvas, PoppleButton.Types.DELETE, Vector2(1, 0))
+        CanvasButton(self._canvas, CanvasButton.Types.DELETE, Vector2(1, 0))
 
-        PoppleButton(self._canvas, PoppleButton.Types.RESIZE, Vector2(1, 1))
+        CanvasButton(self._canvas, CanvasButton.Types.RESIZE, Vector2(1, 1))
 
         # Up Link
-        PoppleButton(
+        CanvasButton(
             self._canvas,
-            PoppleButton.Types.LINK,
+            CanvasButton.Types.LINK,
             Vector2(0.5, 0),
-            PoppleButton.SubTypes.LINK_UP,
+            CanvasButton.SubTypes.LINK_UP,
         )
 
         # Down Link
-        PoppleButton(
+        CanvasButton(
             self._canvas,
-            PoppleButton.Types.LINK,
+            CanvasButton.Types.LINK,
             Vector2(0.5, 1),
-            PoppleButton.SubTypes.LINK_DOWN,
+            CanvasButton.SubTypes.LINK_DOWN,
         )
 
         # Left Link
-        PoppleButton(
+        CanvasButton(
             self._canvas,
-            PoppleButton.Types.LINK,
+            CanvasButton.Types.LINK,
             Vector2(0, 0.5),
-            PoppleButton.SubTypes.LINK_LEFT,
+            CanvasButton.SubTypes.LINK_LEFT,
         )
 
         # Right Link
-        PoppleButton(
+        CanvasButton(
             self._canvas,
-            PoppleButton.Types.LINK,
+            CanvasButton.Types.LINK,
             Vector2(1, 0.5),
-            PoppleButton.SubTypes.LINK_RIGHT,
+            CanvasButton.SubTypes.LINK_RIGHT,
         )
-
-    def _create_menubar(self):
-        menuBar = wx.MenuBar()
-
-        # File Menu
-        fileMenu = wx.Menu()
-
-        newFileItem = fileMenu.Append(wx.ID_NEW, "&New\tCTRL+N", "Create New File")
-        self.Bind(wx.EVT_MENU, self.new, newFileItem)
-
-        openFileItem = fileMenu.Append(wx.ID_OPEN, "&Open\tCTRL+O", "Open File")
-        self.Bind(wx.EVT_MENU, self.open, openFileItem)
-
-        openRecentFileItem = fileMenu.Append(
-            wx.ID_ANY, "&Open Recent", "Open Recent File"
-        )
-        self.Bind(wx.EVT_MENU, self.openRecent, openRecentFileItem)
-
-        saveFileItem = fileMenu.Append(wx.ID_SAVE, "&Save\tCTRL+S", "Save File")
-        self.Bind(wx.EVT_MENU, self.save, saveFileItem)
-
-        saveAsFileItem = fileMenu.Append(
-            wx.ID_SAVEAS, "&Save As\tCTRL+SHIFT+S", "Save As File"
-        )
-        self.Bind(wx.EVT_MENU, self.save_as, saveAsFileItem)
-
-        menuBar.Append(fileMenu, "File")
-
-        # Edit Menu
-        editMenu = wx.Menu()
-
-        newPoppleItem = editMenu.Append(
-            wx.ID_ADD, "&New Popple\tDouble Click", "Create new Popple"
-        )
-        self.Bind(wx.EVT_MENU, self._canvas.on_add_popple, newPoppleItem)
-
-        menuBar.Append(editMenu, "Edit")
-
-        self.SetMenuBar(menuBar)
 
     def is_window_maximized_or_fullscreen(self) -> bool:
         """Returns whether the Window is maximised or using fullscreen."""
         return self._window_fullscreen or self.IsMaximized() or self.IsFullScreen()
 
-    def _on_windowMoved(self, event: wx.Event):
+    def _on_window_moved(self, event: wx.Event):
         if not self.is_window_maximized_or_fullscreen():
             self._window_pos = self.GetPosition()
         event.Skip()
 
-    def _on_windowFullscreen(self, event: wx.FullScreenEvent):
+    def _on_window_fullscreen(self, event: wx.FullScreenEvent):
         self._window_fullscreen = event.IsFullScreen()
         event.Skip()
 
-    def _on_windowResized(self, event: wx.SizeEvent):
+    def _on_window_resized(self, event: wx.SizeEvent):
         if not self.is_window_maximized_or_fullscreen():
             self._window_size = self.GetSize()
         event.Skip()
@@ -208,12 +173,14 @@ class Window(wx.Frame):
                 return True
 
         self.file_history = list(filter(filter_func, self.file_history))
+        self.file_history.append(dir)
 
-    def filler(self, _e=None):
+    def pass_function(self, _e=None):
         """Does nothing, meant to be a placeholder for unimplemented buttons."""
         pass
 
     def new(self, _e=None):
+        """Function calledthrough File > New or CTRL+N"""
         self._new_file()
 
     def _new_file(self):
@@ -276,6 +243,9 @@ class Window(wx.Frame):
 
     ## Function called through File > Open or CTRL+O
     def open(self, _e: wx.CommandEvent = None):
+        if self._canvas.is_modified():
+            pass
+
         dir: str = ""
         with wx.FileDialog(
             self, "Open file", wildcard=FILETYPES, style=wx.FD_OPEN
@@ -286,14 +256,25 @@ class Window(wx.Frame):
 
         self._open_file(dir)
 
-    def openRecent(self, _e: wx.CommandEvent = None):
-        if len(self.file_history) > 0:
-            self.file_history[-1]
-            self._open_file(dir)
+    def openRecent(self, event: wx.CommandEvent = None):
+        dir = ""
+        if event:
+            event_object = event.GetEventObject()
+            if isinstance(event_object, wx.Menu):
+                dir = event_object.GetLabelText(event.GetId())
+            else:
+                return
+
+        elif len(self.file_history) > 0:
+            dir = self.file_history[-1]
+
+        else:
+            return
+
+        self._open_file(dir)
 
     ## Function for opening a file
     def _open_file(self, dir: str):
-        ## TODO - Add a function for clearing out all elements beforehand.
 
         file = {}
         try:
@@ -320,7 +301,7 @@ class Window(wx.Frame):
         self.current_file = dir
 
     ## Function for closing a file
-    def on_close(self, event: wx.Event):
+    def _on_close(self, event: wx.Event):
         self._save_config()
 
         event.Skip()
@@ -331,1001 +312,6 @@ class Window(wx.Frame):
     def update_display(self):
         self._canvas.update_display()
         self._toolbar.update_display()
-
-
-class Canvas(wx.Panel):
-    """A singleton that represents the actual space that Popples and Popple Connections go on."""
-
-    # TODO - Make it so the canvas can check if it's been modified from the original file.
-    # This should be done as a boolean when anything is modified.
-
-    def __init__(self, parent):
-        super().__init__(parent=parent)
-
-        # This is necessary to ensure the popples can properly overlap eachother without causing issues.
-        self.SetDoubleBuffered(True)
-
-        self.config_background_colour = "#303236"
-        self.config_toolbar_background_colour = "#171717"
-        self.config_toolbar_text_colour = "#FFFFFF"
-        self.config_popple_background_colour = "#FFFFFF"
-        self.config_popple_text_colour = "#000000"
-        self.config_popple_border_colour = "#A600FF"
-        self.config_delete_colour = "#ff0000"
-
-        self.SetBackgroundColour(self.config_background_colour)
-
-        self._camera_pos: float = Vector2()
-        self._camera_zoom: float = 1.0
-
-        self.input_mousePosition: Vector2 = Vector2()
-
-        self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
-        self.Bind(wx.EVT_LEFT_DCLICK, self.on_add_popple)
-        self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
-
-        APP.Bind(wx.EVT_RIGHT_DOWN, self.on_rightClick)
-        APP.Bind(wx.EVT_RIGHT_UP, self.onRelease_rightClick)
-
-        self.Bind(wx.EVT_CHILD_FOCUS, self.on_focus_changed)
-        APP.Bind(wx.EVT_MOTION, self.on_mouseMotion)
-
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-
-        # TODO - Add more uses for touch gestures.
-        # Also add a proper check for if the mousewheel input is coming from panning.
-        if self.EnableTouchEvents(wx.TOUCH_ZOOM_GESTURE):
-            APP.Bind(wx.EVT_GESTURE_ZOOM, self.onGesture_zoom)
-            APP.Bind(wx.EVT_MOUSEWHEEL, self.onGesture_pan)
-        else:
-            # This is to make it so Mousewheels zoom instead of panning up and down.
-            APP.Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
-        self.Bind(wx.EVT_KILL_FOCUS, self.on_unfocused)
-
-        self._original_zoom_factor = None
-        self._drag_element = None
-        self._drag_mouse_position: Vector2 = None
-        self._drag_position: Vector2 = None
-
-        # Since Popple Connections are only rendered in the paint events, making them separate elements in wxpython isn't necessary.
-        self.popple_connections: list[PoppleConnection] = []
-        self._focused_popple_connection: PoppleConnection = None
-
-    def get_display_mouse_position(self) -> Vector2:
-        """Gets the mouse position relative to the window."""
-        absolute_position = Vector2(wx.GetMousePosition())
-        return Vector2(self.ScreenToClient(absolute_position.get_as_wxPoint()))
-
-    def get_mouse_position(self) -> Vector2:
-        """Gets the mouse position with camera taken into account."""
-        position = self.get_display_mouse_position()
-        position /= self._camera_zoom
-        position += self._camera_pos
-
-        return position
-
-    def clear_all(self):
-        """Removes all Popples and Popple Connections"""
-        self.popple_connections = []
-        for popple in self.get_popples():
-            popple.Destroy()
-
-        refresh()
-
-    # Adds a new Popple to the field
-    def append_popple(self, pos: Vector2, size: Vector2 = None, text: str = ""):
-        """
-        Adds a new popple to the field, and returns the Popple.
-
-        If size is None, Popple.MINIMUM_SIZE will be used.
-        """
-
-        if not size:
-            size = Popple.MINIMUM_SIZE
-
-        true_pos = pos - (size * 0.5)
-        return Popple(true_pos, size, text)
-
-    # Adds a new Popple Connection
-    def append_popple_connection(self, popple1, popple2=None):
-        # popple1 must not be None
-        if not popple1:
-            return
-
-        # popple1 and popple2 must not be the same.
-        if popple1 == popple2:
-            return
-
-        # Checks if there's already a poppleconnection that links these together.
-        for i in self.popple_connections:
-            if (i.widget1 == popple1 and i.widget2 == popple2) or (
-                i.widget2 == popple1 and i.widget1 == popple2
-            ):
-                return
-
-        new_connection = PoppleConnection(popple1, popple2)
-        self.popple_connections.append(new_connection)
-        self.update_popple_connections()
-
-    # Removes a Popple.
-    def remove_popple(self, popple):
-        # Function used for filtering out the popple connections linking to the removed Popple.
-        if isinstance(popple, Popple):
-
-            def filter_func(v: PoppleConnection):
-                if v.widget1 == popple or v.widget2 == popple:
-                    return False
-                return True
-
-            self.popple_connections = list(filter(filter_func, self.popple_connections))
-            popple.Destroy()
-            refresh()
-
-    def remove_popple_connection(self, popple_connection):
-        if isinstance(popple_connection, PoppleConnection):
-            # Function used for filtering out the popple connection being removed.
-            def filter_func(v: PoppleConnection):
-                if v == popple_connection:
-                    return False
-                return True
-
-            self.popple_connections = list(filter(filter_func, self.popple_connections))
-            if self._focused_popple_connection == popple_connection:
-                self._focused_popple_connection = None
-            refresh()
-
-    # Gets an array of all Popples.
-    def get_popples(self) -> list:
-        result = []
-        for _, v in enumerate(self.GetChildren()):
-            if isinstance(v, Popple):
-                result.append(v)
-
-        return result
-
-    # Gets an array of all Popple Connections.
-    def get_popple_connections(self) -> list:
-        return self.popple_connections
-
-    # Gets an array of the Buttons used on the Popples.
-    def get_popple_buttons(self):
-        result = []
-        for _, v in enumerate(self.GetChildren()):
-            if isinstance(v, PoppleButton):
-                result.append(v)
-
-        return result
-
-    # Called if "Edit > Add Popple" is used.
-    def on_add_popple(self, event: wx.Event):
-        pos = Vector2()
-        if event.GetEventObject() == self:
-            pos = self.get_mouse_position()
-        else:
-            parent = self.GetParent()
-            if isinstance(parent, Window):
-                pos += Vector2(parent.GetSize()) * 0.5
-            pos += self._camera_pos
-        self.append_popple(pos)
-
-    # TODO - Make it so you can click on the Popple Connections to do stuff to them. (Like changing end designs or deleting them)
-    # Sets focus to itself so the focus is on no popples. (Focus cannot be set to nothing.)
-    def on_leftClick(self, event: wx.MouseEvent):
-        self.SetFocusIgnoringChildren()
-
-        for i in self.get_popple_connections():
-            if isinstance(i, PoppleConnection):
-                if i.is_mouse_touching() and i != self._focused_popple_connection:
-                    self.set_focused_popple_connection(i)
-                    return
-        self.set_focused_popple_connection(None)
-
-    def get_focused_popple_connection(self):
-        return self._focused_popple_connection
-
-    def set_focused_popple_connection(self, new_focused_popple_connection):
-        if new_focused_popple_connection != self._focused_popple_connection and (
-            isinstance(new_focused_popple_connection, PoppleConnection)
-            or not new_focused_popple_connection
-        ):
-            if self._focused_popple_connection:
-                self._focused_popple_connection.on_unfocused()
-
-            if new_focused_popple_connection:
-                new_focused_popple_connection.on_focused()
-
-            self._focused_popple_connection = new_focused_popple_connection
-            refresh()
-
-    # Stops dragging on anything.
-    def onRelease_leftClick(self, event: wx.MouseEvent):
-        self.stop_drag()
-
-    # Makes it so the camera will be dragged.
-    def on_rightClick(self, event: wx.MouseEvent):
-        self.set_drag(self)
-
-    # Stops the camera from being dragged when right click is released.
-    def onRelease_rightClick(self, event: wx.MouseEvent):
-        if self.get_drag() == self:
-            self.set_drag(None)
-
-    # Removes any new Connections.
-    # "new connections" refers to the Popple Connections that have
-    def remove_new_connections(self):
-        def filter_func(n: PoppleConnection):
-            if n.is_new():
-                return True
-            return False
-
-        self.popple_connections = list(filter(filter_func, self.popple_connections))
-
-    # Gets all new connections.
-    def get_new_connections(self):
-        result = []
-        for i, v in enumerate(self.popple_connections):
-            if not v.widget2:
-                result.append(v)
-        return result
-
-    # Actions for when the mouse is being moved.
-    def on_mouseMotion(self, event: wx.MouseEvent):
-        self.move_drag()
-
-        if self.get_new_connections():
-            self.update_popple_connections()
-
-        event.Skip()
-        return
-
-    # Actions for when the Mouse Wheel is being used.
-    # Also occurs for any 2+ finger gestures on Macbook.
-
-    # Using the Zoom Gesture (Pinching or Spreading two fingers.)
-    def onGesture_zoom(self, event: wx.ZoomGestureEvent):
-
-        if event.IsGestureStart():
-            self._original_zoom_factor = event.GetZoomFactor()
-        elif event.IsGestureEnd():
-            self._original_zoom_factor = None
-        elif self._original_zoom_factor:
-            zoom_factor = event.GetZoomFactor()
-            distance = zoom_factor - self._original_zoom_factor
-            self._original_zoom_factor = zoom_factor
-            self.zoom_camera(distance)
-
-    # Using the Pan Gesture (Moving two fingers around.)
-    def onGesture_pan(self, event: wx.MouseEvent):
-        amount = Vector2()
-        axis = event.GetWheelAxis()
-        if axis == 0:  # Y axis
-            amount.y = -event.GetWheelRotation()
-        elif axis == 1:  # X axis
-            amount.x = event.GetWheelRotation()
-
-        movement = amount
-
-        self.move_camera(movement)
-
-    def on_mouseWheel(self, event: wx.MouseEvent):
-        # Mouse Wheel
-        amount = event.GetWheelRotation()
-
-        self.zoom_camera(amount * 0.001)
-
-    # Zooms camera by a specified amount
-    # If from_position is None, uses mouse position instead.
-    def zoom_camera(self, amount: float, from_position: Vector2 = None):
-        old_mouse_pos = Vector2()
-        if from_position:
-            old_mouse_pos = from_position
-        else:
-            old_mouse_pos = self.get_mouse_position()
-
-        self._camera_zoom += amount
-        self._camera_zoom = max(self._camera_zoom, 0.1)
-        self._camera_zoom = round(self._camera_zoom * 100) / 100
-
-        self._camera_pos += old_mouse_pos - self.get_mouse_position()
-
-        refresh()
-
-    def get_camera_zoom(self) -> Vector2:
-        return self._camera_zoom
-
-    # Moves camera by a specified amount
-    def move_camera(self, pos: Vector2, affected_by_zoom: bool = True):
-        if affected_by_zoom:
-            pos /= self._camera_zoom
-        self._camera_pos += pos
-        refresh()
-
-    # Moves camera to a position.
-    def move_camera_to(self, pos: Vector2):
-        self._camera_pos = pos
-        refresh()
-
-    def get_camera_position(self) -> Vector2:
-        return self._camera_pos
-
-    # Updates visuals of everything in the Canvas.
-    def update_display(self):
-        # Updates visuals of all Popples.
-        for _, v in enumerate(self.get_popples()):
-            if isinstance(v, Popple):
-                v.update_display()
-
-        # Updates visuals of all Popple Buttons.
-        for _, v in enumerate(self.get_popple_buttons()):
-            if isinstance(v, PoppleButton):
-                v.update_display()
-
-        # Causes the program to refresh drawing for all Popple Connections.
-        self.update_popple_connections()
-
-    def update_popple_connections(self):
-        self.Refresh()
-
-    # Called when focus is changed (Moving to elements regardless of whether it has gained or lost focus)
-    def on_focus_changed(self, event):
-        refresh()
-
-    def on_unfocused(self, event):
-        self.set_focused_popple_connection(None)
-
-    # This constant specifies the internal border width.
-    BORDER_WIDTH = 3
-
-    # Returns the width of the border with camera zooming taken into account.
-    def get_border_width(self) -> int:
-        return max(1, round(self.BORDER_WIDTH * self._camera_zoom))
-
-    # Re-renders the rendering of Popple Connections
-    def on_paint(self, event=None):
-        dc = wx.PaintDC(self)
-
-        # Using a Graphics Context because it has functions to allow shape drawing and also uses antialiasing.
-        gc = wx.GraphicsContext.Create(dc)
-        if not gc:
-            return  # TODO - Make it so the program properly handles when Graphics Context is not usable.
-
-        # make a pen
-        pen = wx.Pen(
-            self.config_popple_border_colour, self.get_border_width(), wx.PENSTYLE_SOLID
-        )
-        gc.SetPen(pen)
-
-        for i in self.get_popple_connections():
-            if isinstance(i, PoppleConnection):
-                widget1_pos = i.get_widget1_display_position()
-                widget2_pos = i.get_widget2_display_position()
-
-                path = gc.CreatePath()
-
-                path.MoveToPoint(widget1_pos.x, widget1_pos.y)
-                path.AddLineToPoint(widget2_pos.x, widget2_pos.y)
-                path.CloseSubpath()
-
-                gc.StrokePath(path)
-
-        gc.Flush()
-
-    # Gets the currently focused popple if there is one.
-    def get_focused_popple(self):
-        focused_element = self.FindFocus()
-        if isinstance(focused_element, Popple):
-            return focused_element
-        elif isinstance(focused_element, wx.TextCtrl):
-            # Since the Popple's TextCtrl has focus, we need to get the Popple through the GetParent function.
-            focused_element_parent = focused_element.GetParent()
-            if isinstance(focused_element_parent, Popple):
-                return focused_element_parent
-
-    # Starts dragging of an element.
-    def start_drag(self, element):
-        self.set_drag(element)
-
-    # Stops dragging of an element.
-    def stop_drag(self, element=None):
-        # If element isn't None, only stops dragging the element itself to prevent interference with other items being dragged.
-        if (not element) or element == self._drag_element:
-            self.set_drag(None)
-
-    # Sets which item is being dragged.
-    def set_drag(self, element):
-        old_element = self._drag_element
-        self._drag_element = element
-        self._drag_mouse_position = self.get_mouse_position()
-
-        if element == self:
-            self._drag_position = self._camera_pos
-        elif isinstance(element, Popple):
-            self._drag_position = element.pos
-        elif isinstance(element, PoppleButton):
-            if element.type == PoppleButton.Types.LINK:
-                self.append_popple_connection(self.get_focused_popple())
-            elif element.type == PoppleButton.Types.RESIZE:
-                self._drag_position = self.get_focused_popple().size
-
-        if isinstance(old_element, PoppleButton):
-            if old_element.type == PoppleButton.Types.LINK:
-                popple_to_link: Popple = None
-                for (
-                    p
-                ) in (
-                    self.get_popples()
-                ):  # Check if the mouse is in any existing Popples.
-                    if isinstance(p, Popple):
-                        display_mouse_position = self.get_display_mouse_position()
-                        if p.get_display_rect().Contains(
-                            display_mouse_position.x, display_mouse_position.y
-                        ):
-                            popple_to_link = p
-                            self.update_popple_connections()
-                            break
-
-                if (
-                    not popple_to_link
-                ):  # Create a new Popple if the connection doesn't link to an existing Popple.
-                    popple_to_link = self.append_popple(self.get_mouse_position())
-
-                for (
-                    v
-                ) in (
-                    self.get_new_connections()
-                ):  # Link any new connections to the Popple to link.
-                    v.widget2 = popple_to_link
-
-    # Gets the item being dragged.
-    def get_drag(self):
-        return self._drag_element
-
-    # Moves the dragged item around. This behaviour varies depending on the object.
-    def move_drag(self):
-        _drag_element = self._drag_element
-
-        if not _drag_element:
-            return
-
-        if _drag_element == self:
-            self._camera_pos = (
-                self._drag_position
-            )  # Direct modification for get_mouse_position to work correctly.
-
-        mousePos = self.get_mouse_position()
-        mouse_dist = mousePos - self._drag_mouse_position
-
-        if _drag_element == self:
-            mouse_dist *= -1
-
-        pos = self._drag_position + mouse_dist
-
-        # If dragging the canvas, move the camera around.
-        if _drag_element == self:
-            self.move_camera_to(pos)  # Properly updates Camera position
-
-        # Drags the Popple's position around
-        elif isinstance(_drag_element, Popple):
-            _drag_element.pos = pos
-            refresh()
-
-        # Causes different behaviours depending on the Button's type.
-        elif isinstance(_drag_element, PoppleButton):
-
-            # Link Button
-            if _drag_element.type == PoppleButton.Types.LINK:
-                # Since the PoppleConnection following the mouse is rendered visually, just give the program an update.
-                self.update_popple_connections()
-
-            # Resize button - Resizes the Popple
-            if _drag_element.type == PoppleButton.Types.RESIZE:
-                focused_popple = self.get_focused_popple()
-                focused_popple.set_size(pos)
-                refresh()
-
-
-def get_window() -> Window:
-    return wx.GetTopLevelWindows()[0]
-
-
-# Helper function for below elements to get the canvas window.
-def get_canvas() -> Canvas:
-    result: Canvas = None
-    app = get_window()
-    if isinstance(app, Window):
-        result = app.get_canvas()
-
-    return result
-
-
-def refresh():
-    window = get_window()
-
-    window.update_display()
-
-
-class Popple(wx.Panel):
-    # The minimum size that the Popple can be at.
-    MINIMUM_SIZE: Vector2 = Vector2(150, 100)
-
-    # The font size used for the text.
-    FONT_SIZE = 14
-
-    def __init__(self, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
-        canvas = get_canvas()
-        super().__init__(canvas, wx.ID_ANY, style=wx.BORDER_NONE)
-
-        textCtrl_style = (
-            wx.TE_READONLY
-            | wx.TE_NO_VSCROLL
-            | wx.TE_CENTER
-            | wx.TE_MULTILINE
-            | wx.BORDER_NONE
-        )
-
-        self.textCtrl: wx.TextCtrl = wx.TextCtrl(
-            self, wx.ID_ANY, text, style=textCtrl_style
-        )
-
-        ## TODO - Make sure this works on MacOS
-        self.textCtrl.SetFont(
-            wx.Font(
-                pointSize=self.FONT_SIZE,
-                family=wx.FONTFAMILY_DEFAULT,
-                style=wx.FONTSTYLE_NORMAL,
-                weight=wx.FONTWEIGHT_NORMAL,
-                faceName="Calibri",
-            )
-        )
-
-        self.SetBackgroundColour(canvas.config_popple_background_colour)
-
-        # TODO - Find a way to make this transparent.
-        self.textCtrl.SetBackgroundColour(canvas.config_popple_background_colour)
-        self.textCtrl.SetForegroundColour(canvas.config_popple_text_colour)
-
-        self.pos: Vector2 = pos
-        self.size: Vector2 = size
-
-        # A seperate function is used because both the popple and the text element can recieve inputs.
-        # I cannot just disable all binds for the textctrl because it needs to be able to get text when it can.
-        def Bind(event: wx.PyEventBinder, handler):
-            self.textCtrl.Bind(event, handler)
-            self.Bind(event, handler)
-
-        Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
-        Bind(wx.EVT_LEFT_DCLICK, self.on_leftClick)
-        Bind(wx.EVT_MOTION, self.on_unnecessary_input)
-        Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
-        Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
-
-        self.Bind(wx.EVT_SET_FOCUS, self.on_focused)
-        self.Bind(wx.EVT_KILL_FOCUS, self.on_unfocused)
-        self.textCtrl.Bind(wx.EVT_SET_FOCUS, self.on_textCtrl_focused)
-        self.textCtrl.Bind(wx.EVT_KILL_FOCUS, self.on_textCtrl_unfocused)
-        self.textCtrl.Bind(wx.EVT_KEY_DOWN, self.on_textCtrl_textInput)
-        self.textCtrl.Bind(wx.EVT_TEXT, self.on_textCtrl_text)
-
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-        self.Bind(wx.EVT_WINDOW_CREATE, self.ready)
-
-        self.update_display()
-        # self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
-
-    # A separate ready function is necessary for drawing operations performed on initial creation of the window.
-    def ready(self, event: wx.Event):
-        self.update_display()
-        event.Skip()
-
-    # Gets the position relative to the window.
-    def get_display_position(self):
-        pos = self.pos
-
-        parent = self.GetParent()
-        if isinstance(parent, Canvas):
-            pos -= parent.get_camera_position()
-            pos *= parent.get_camera_zoom()
-
-        return pos.get_as_Vector2i()
-
-    # Gets the internal size.
-    def set_size(self, new_size: Vector2):
-        self.size = Vector2(
-            max(self.MINIMUM_SIZE.x, new_size.x),
-            max(self.MINIMUM_SIZE.y, new_size.y),
-        )
-
-    # Gets the size relative to the window.
-    def get_display_size(self):
-        size = self.size
-
-        canvas = get_canvas()
-        if canvas:
-            size *= canvas.get_camera_zoom()
-
-        return size.get_as_Vector2i()
-
-    # Gets the rect of the Popple relative to the window. (Contains Position and Size)
-    def get_display_rect(self) -> wx.Rect:
-        pos = self.get_display_position()
-        size = self.get_display_size()
-        return wx.Rect(pos.x, pos.y, size.x, size.y)
-
-    # Called when inputting text to the TextInput before the text is parsed.
-    def on_textCtrl_textInput(self, event: wx.KeyEvent):
-        # Doesn't do anything right now.
-
-        event.Skip()
-
-    # Called when inputting text to the TextInput after the text is parsed.
-    def on_textCtrl_text(self, event: wx.CommandEvent):
-        # Doesn't do anything right now.
-
-        self.update_display()
-        event.Skip()
-
-    def update_display(self):
-        """Updates the element's appearance on the window itself."""
-
-        new_pos = self.get_display_position()
-        self.Move(new_pos.x, new_pos.y)
-
-        new_size = self.get_display_size()
-        self.SetSize(new_size.x, new_size.y)
-
-        canvas = get_canvas()
-
-        # Adjusts the size of the text according to Zoom.
-        text_font = self.textCtrl.GetFont()
-        text_font.SetPointSize(round(self.FONT_SIZE * canvas.get_camera_zoom()))
-        self.textCtrl.SetFont(text_font)
-
-        textCtrl_newSize: Vector2 = new_size
-        textCtrl_newSize -= (
-            canvas.get_border_width() * 4
-        )  # Borderwidth*2 makes the text right on the Border Width.
-        # textCtrl_newSize.y = self.textCtrl.GetBestHeight(textCtrl_newSize.x)
-        self.textCtrl.SetSize(textCtrl_newSize.x, textCtrl_newSize.y)
-
-        # TODO - Center the text
-        # print("TEST")
-        # text_string = self.textCtrl.GetValue()
-        # print(self.textCtrl.GetTextExtent(text_string))
-
-        # text_string = self.textCtrl.GetValue()
-
-        # print(text_string)
-        # print(self.textCtrl.GetTextExtent())
-
-        # Centers the textCtrl
-        textCtrl_newPos: Vector2 = round((new_size - textCtrl_newSize) * 0.5)
-        self.textCtrl.Move(textCtrl_newPos.x, textCtrl_newPos.y)
-
-        self.Refresh()
-        self.Update()
-
-    # Used by the file saving system to get the necessary data from this Popple.
-    def get_file_data(self):
-        data = {
-            "x": self.pos.x,
-            "y": self.pos.y,
-            "width": self.size.x,
-            "height": self.size.y,
-            # "id":self.GetId(),
-            "text": self.textCtrl.GetValue(),
-        }
-        return data
-
-    # Overrides default behaviour and propagates it to the Canvas.
-    def on_unnecessary_input(self, event: wx.Event):
-        parent = self.GetParent()
-        if isinstance(parent, Canvas):
-            parent.GetEventHandler().ProcessEvent(event)
-
-    def on_leftClick(self, event: wx.MouseEvent):
-        # Activates Text Input
-        if event.LeftDClick():
-            self.textCtrl.SetFocus()
-            parent = get_canvas()
-
-        # Dragging the Popple.
-        else:
-            self.SetFocusIgnoringChildren()
-
-            parent = self.GetParent()
-            if isinstance(parent, Canvas):
-                parent.start_drag(self)
-        # event.Skip()
-
-    # Propagates this up to the Canvas
-    def onRelease_leftClick(self, event: wx.Event):
-        self.on_unnecessary_input(event)
-
-    # Propagates this up to the Canvas
-    def on_mouseMotion(self, event: wx.MouseEvent):
-        self.on_unnecessary_input()
-        # event.Skip()
-
-    # Propagates this up to the Canvas
-    def on_mouseWheel(self, event: wx.MouseEvent):
-        self.on_unnecessary_input(event)
-
-    # Use this instead of HasFocus so the textCtrl is taken into account.
-    def hasFocus(self) -> bool:
-        return self.textCtrl.HasFocus() or self.HasFocus()
-
-    # Occurs if the TextCtrl is focused. (Text edit mode)
-    def on_textCtrl_focused(self, event: wx.Event):
-        self.setEditable(True)
-        event.Skip()
-
-    # Occurs if the TextCtrl loses focus. (Text edit disabled)
-    def on_textCtrl_unfocused(self, event: wx.Event):
-        self.setEditable(False)
-        event.Skip()
-
-    # Occurs when the Popple itself is focused.
-    def on_focused(self, event: wx.Event):
-        self.Raise()
-        event.Skip()
-
-    # Occurs when the Popple itself loses focus.
-    def on_unfocused(self, event: wx.Event):
-        event.Skip()
-
-    # Sets editability of the textCtrl.
-    def setEditable(self, value: bool):
-        self.textCtrl.SetEditable(value)
-
-    # Renders Borders.
-    def on_paint(self, event: wx.PaintEvent = None):
-        dc = wx.PaintDC(self)  # event.GetEventObject()
-        gc = wx.GraphicsContext.Create(dc)
-        parent = get_canvas()
-        if not gc:
-            return
-
-        border_width = parent.get_border_width()
-        pen = wx.Pen(
-            parent.config_popple_border_colour, border_width, wx.PENSTYLE_SOLID
-        )
-        gc.SetPen(pen)
-
-        pos = Vector2(math.floor(border_width * 0.5))
-        size = self.get_display_size() - border_width
-
-        gc.DrawRectangle(
-            pos.x,
-            pos.y,
-            size.x,
-            size.y,
-        )
-        gc.Flush()
-
-
-# The lines connecting between Popples.
-# They're not based on wx.Panel because I didn't find that necessary.
-class PoppleConnection:
-    ## TODO - Make things such as getting position related to the Connection.
-    def __init__(self, widget1: Popple, widget2: Popple):
-        self.widget1 = widget1
-        self.widget2 = widget2
-
-    def get_widget1_display_position(self) -> Vector2:
-        return self.get_widget_display_position(self.widget1)
-
-    def get_widget2_display_position(self) -> Vector2:
-        if self.widget2:
-            return self.get_widget_display_position(self.widget2)
-        else:
-            canvas = get_canvas()
-            return canvas.get_display_mouse_position()
-
-    def get_widget_display_position(self, popple: Popple) -> Vector2:
-        pos = popple.get_display_position()
-        pos += popple.get_display_size() * 0.5
-        return pos
-
-    def get_widget1_position(self) -> Vector2:
-        return self.get_widget_position(self.widget1)
-
-    def get_widget2_position(self) -> Vector2:
-        if self.widget2:
-            return self.get_widget_position(self.widget2)
-        else:
-            canvas = get_canvas()
-            return canvas.get_mouse_position()
-
-    def get_widget_position(self, popple: Popple) -> Vector2:
-        pos = popple.pos
-        pos += popple.size * 0.5
-        return pos
-
-    # TODO - Test this.
-    def is_mouse_touching(self):
-        if self.is_new():
-            return True
-        # line = self.get_line(False)
-        canvas = get_canvas()
-        pos1 = self.get_widget1_display_position()
-        pos2 = self.get_widget2_display_position()
-        posm = Vector2(canvas.get_display_mouse_position())
-
-        linecheck: float = (
-            ((pos2.x - pos1.x) * (posm.x - pos1.x))
-            + ((pos2.y - pos1.y) * (posm.y - pos1.y))
-        ) / (((pos2.x - pos1.x) ** 2) + ((pos2.y - pos1.y) ** 2))
-
-        if 0.0 <= linecheck and linecheck <= 1.0:
-            distance: float = abs(
-                ((pos2.y - pos1.y) * (posm.x - pos1.x))
-                - ((pos2.x - pos1.x) * (posm.y - pos1.y))
-            ) / ((((pos2.x - pos1.x) ** 2) + ((pos2.y - pos1.y) ** 2)) ** 0.5)
-
-            distance /= canvas.get_border_width() * 2
-
-            if distance < 1.0:
-                return True
-
-        return False
-
-    def is_new(self) -> bool:
-        if self.widget2:
-            return False
-        return True
-
-    def on_focused(self):
-        pass
-
-    def on_unfocused(self):
-        pass
-
-
-class PoppleButton(wx.StaticBitmap):
-    class Types(Enum):
-        NONE = -1
-        DELETE = 0
-        LINK = 1
-        RESIZE = 2
-
-    class SubTypes(Enum):
-        DEFAULT = 0
-        LINK_UP = 0
-        LINK_DOWN = 1
-        LINK_LEFT = 2
-        LINK_RIGHT = 3
-
-    def __init__(
-        self, parent: wx.Window, type: int, anchor: Vector2 = (0, 0), subType: int = 0
-    ):
-        super().__init__(parent, style=wx.BORDER_NONE)
-        self.type = type
-        self.subtype = subType
-        self.anchor: Vector2 = anchor
-
-        self.size: Vector2 = Vector2(20, 20)
-
-        self.Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
-        self.Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
-        self.Bind(wx.EVT_SET_FOCUS, self.on_focused)
-
-        self.SetBackgroundColour(self.get_colour())
-        self.bitmap = wx.Bitmap(self.get_texture_path())
-
-    def get_colour(self):
-        if self.type == PoppleButton.Types.DELETE:
-            return "#FF0000"
-        else:
-            return "#A600FF"
-
-    def get_texture_path(self):
-        image_path = ""
-        if self.type == PoppleButton.Types.DELETE:
-            image_path = "assets/textures/delete.png"
-        elif self.type == PoppleButton.Types.RESIZE:
-            image_path = "assets/textures/resize.png"
-        elif self.type == PoppleButton.Types.LINK:
-            if self.subtype == PoppleButton.SubTypes.LINK_UP:
-                image_path = "assets/textures/uparrow.png"
-            elif self.subtype == PoppleButton.SubTypes.LINK_DOWN:
-                image_path = "assets/textures/downarrow.png"
-            elif self.subtype == PoppleButton.SubTypes.LINK_LEFT:
-                image_path = "assets/textures/leftarrow.png"
-            elif self.subtype == PoppleButton.SubTypes.LINK_RIGHT:
-                image_path = "assets/textures/rightarrow.png"
-        return image_path
-
-    def get_focused_popple(self):
-        parent = get_canvas()
-
-        return parent.get_focused_popple()
-
-    def update_display(self):
-
-        def enable():  # This local function enables the button.
-            self.Enable()
-            self.Show()
-            self.Raise()  # TEMPORARY
-
-        def disable():  # This local function disables the button.
-            self.Hide()
-            self.Disable()
-
-        canvas = get_canvas()
-        focused_popple = self.get_focused_popple()
-
-        pos: Vector2 = Vector2()
-
-        # Determines the Size
-        size = self.size * canvas.get_camera_zoom()
-        size = size.get_as_Vector2i()
-
-        if isinstance(focused_popple, Popple):
-            enable()
-
-            # Determines the Position
-            pos = focused_popple.get_display_position() - size
-            pos += (focused_popple.get_display_size() + size) * self.anchor
-        elif canvas.get_focused_popple_connection():
-            if self.type == PoppleButton.Types.DELETE:
-                enable()
-                focused_popple_connection: PoppleConnection = (
-                    canvas.get_focused_popple_connection()
-                )
-                pos1 = focused_popple_connection.get_widget1_display_position()
-                pos2 = focused_popple_connection.get_widget2_display_position()
-
-                pos = (pos1 + pos2) * 0.5
-                pos -= size * 0.5
-            else:
-                disable()
-                return
-        else:
-            disable()
-            return
-
-        self.Move(pos.get_as_wxPoint())
-        self.SetSize(size.get_as_wxSize())
-
-        bitmap = self.bitmap
-        image = bitmap.ConvertToImage()
-        image = image.Scale(size.x, size.y)
-        new_bitmap = wx.Bitmap(image)
-        self.SetBitmap(new_bitmap)
-
-    def AcceptsFocus(self):
-        return False
-
-    def AcceptsFocusFromKeyboard(self):
-        return False
-
-    def on_focused(self, event: wx.FocusEvent):
-        pass
-
-    def on_leftClick(self, event):
-        focused_popple = self.get_focused_popple()
-        if not isinstance(focused_popple, Popple):
-            return
-
-        if self.type == PoppleButton.Types.DELETE:
-            pass
-        else:
-            parent = get_canvas()
-            parent.start_drag(self)
-
-    def onRelease_leftClick(self, event: wx.MouseEvent):
-        parent = get_canvas()
-        if not isinstance(parent, Canvas):
-            return
-        if self.type == self.Types.DELETE:
-            if parent.get_focused_popple():
-                parent.remove_popple(parent.get_focused_popple())
-
-            # TODO - Make this work properly.
-            if parent.get_focused_popple_connection():
-                parent.remove_popple_connection(parent.get_focused_popple_connection())
-        else:
-            parent.stop_drag(self)
 
 
 class BottomToolbar(wx.Panel):
@@ -1346,7 +332,7 @@ class BottomToolbar(wx.Panel):
         self.SetSizer(sizer)
 
         canvas = get_canvas()
-        ## TODO - Change the text colour in the Static Text.
+
         self.SetBackgroundColour(canvas.config_toolbar_background_colour)
         for i in self.GetChildren():
             if isinstance(i, wx.StaticText):
@@ -1370,11 +356,30 @@ class BottomToolbar(wx.Panel):
         self._camera_pos_counter.SetLabel(pos_label)
 
 
-APP = wx.App()
-frame = Window()
-frame.Show()
+def get_window() -> Window:
+    """Helper function to get the base window"""
+    window = wx.GetTopLevelWindows()[0]
+    return window
+
+
+def get_canvas():
+    """Helper function to get the canvas window"""
+    window = get_window()
+    return window.get_canvas()
+
+
+def refresh():
+    """Re-renders everything"""
+    window = get_window()
+    window.update_display()
+
 
 if __name__ == "__main__":
+    APP = wx.App()
+
+    window = Window()
+    window.Show()
+
     import sys
 
     try:

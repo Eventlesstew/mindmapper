@@ -1,6 +1,6 @@
 import wx
-from vectors import *
-import main
+from functions.vectors import *
+from main import get_canvas
 
 
 class Popple(wx.Panel):
@@ -11,7 +11,7 @@ class Popple(wx.Panel):
     FONT_SIZE = 14
 
     def __init__(self, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
-        canvas = main.get_canvas()
+        canvas = get_canvas()
         super().__init__(canvas, wx.ID_ANY, style=wx.BORDER_NONE)
 
         textCtrl_style = (
@@ -52,27 +52,27 @@ class Popple(wx.Panel):
             self.textCtrl.Bind(event, handler)
             self.Bind(event, handler)
 
-        Bind(wx.EVT_LEFT_DOWN, self.on_leftClick)
-        Bind(wx.EVT_LEFT_DCLICK, self.on_leftClick)
-        Bind(wx.EVT_MOTION, self.on_unnecessary_input)
-        Bind(wx.EVT_LEFT_UP, self.onRelease_leftClick)
-        Bind(wx.EVT_MOUSEWHEEL, self.on_mouseWheel)
+        Bind(wx.EVT_LEFT_DOWN, self._on_mouse_left_press)
+        Bind(wx.EVT_LEFT_DCLICK, self._on_mouse_left_press)
+        Bind(wx.EVT_MOTION, self._on_unneeded_input)
+        Bind(wx.EVT_LEFT_UP, self._on_mouse_left_release)
+        Bind(wx.EVT_MOUSEWHEEL, self._on_mouse_wheel)
 
-        self.Bind(wx.EVT_SET_FOCUS, self.on_focused)
-        self.Bind(wx.EVT_KILL_FOCUS, self.on_unfocused)
-        self.textCtrl.Bind(wx.EVT_SET_FOCUS, self.on_textCtrl_focused)
-        self.textCtrl.Bind(wx.EVT_KILL_FOCUS, self.on_textCtrl_unfocused)
-        self.textCtrl.Bind(wx.EVT_KEY_DOWN, self.on_textCtrl_textInput)
-        self.textCtrl.Bind(wx.EVT_TEXT, self.on_textCtrl_text)
+        self.Bind(wx.EVT_SET_FOCUS, self._on_focused)
+        self.Bind(wx.EVT_KILL_FOCUS, self._on_unfocused)
+        self.textCtrl.Bind(wx.EVT_SET_FOCUS, self._on_textCtrl_focused)
+        self.textCtrl.Bind(wx.EVT_KILL_FOCUS, self._on_textCtrl_unfocused)
+        self.textCtrl.Bind(wx.EVT_KEY_DOWN, self._on_textCtrl_text_input)
+        self.textCtrl.Bind(wx.EVT_TEXT, self._on_textCtrl_text_post)
 
-        self.Bind(wx.EVT_PAINT, self.on_paint)
-        self.Bind(wx.EVT_WINDOW_CREATE, self.ready)
+        self.Bind(wx.EVT_PAINT, self._on_paint)
+        self.Bind(wx.EVT_WINDOW_CREATE, self._on_ready)
 
         self.update_display()
-        # self.textCtrl.Bind(wx.EVT_MOTION, self.on_unnecessary_input)
+        # self.textCtrl.Bind(wx.EVT_MOTION, self._on_unneeded_input)
 
-    # A separate ready function is necessary for drawing operations performed on initial creation of the window.
-    def ready(self, event: wx.Event):
+    # A separate _on_ready function is necessary for drawing operations performed on initial creation of the window.
+    def _on_ready(self, event: wx.Event):
         self.update_display()
         event.Skip()
 
@@ -80,10 +80,10 @@ class Popple(wx.Panel):
     def get_display_position(self):
         pos = self.pos
 
-        parent = self.GetParent()
-        if isinstance(parent, Canvas):
-            pos -= parent.get_camera_position()
-            pos *= parent.get_camera_zoom()
+        canvas = get_canvas()
+        if canvas:
+            pos -= canvas.get_camera_position()
+            pos *= canvas.get_camera_zoom()
 
         return pos.get_as_Vector2i()
 
@@ -98,7 +98,7 @@ class Popple(wx.Panel):
     def get_display_size(self):
         size = self.size
 
-        canvas = main.get_canvas()
+        canvas = get_canvas()
         if canvas:
             size *= canvas.get_camera_zoom()
 
@@ -111,13 +111,13 @@ class Popple(wx.Panel):
         return wx.Rect(pos.x, pos.y, size.x, size.y)
 
     # Called when inputting text to the TextInput before the text is parsed.
-    def on_textCtrl_textInput(self, event: wx.KeyEvent):
+    def _on_textCtrl_text_input(self, event: wx.KeyEvent):
         # Doesn't do anything right now.
 
         event.Skip()
 
     # Called when inputting text to the TextInput after the text is parsed.
-    def on_textCtrl_text(self, event: wx.CommandEvent):
+    def _on_textCtrl_text_post(self, event: wx.CommandEvent):
         # Doesn't do anything right now.
 
         self.update_display()
@@ -132,7 +132,7 @@ class Popple(wx.Panel):
         new_size = self.get_display_size()
         self.SetSize(new_size.x, new_size.y)
 
-        canvas = main.get_canvas()
+        canvas = get_canvas()
 
         # Adjusts the size of the text according to Zoom.
         text_font = self.textCtrl.GetFont()
@@ -175,61 +175,59 @@ class Popple(wx.Panel):
         }
         return data
 
-    # Overrides default behaviour and propagates it to the Canvas.
-    def on_unnecessary_input(self, event: wx.Event):
-        parent = self.GetParent()
-        if isinstance(parent, Canvas):
-            parent.GetEventHandler().ProcessEvent(event)
+    def _on_unneeded_input(self, event: wx.Event):
+        """Overrides default behaviour and propagates it to the Canvas."""
+        canvas = get_canvas()
+        if canvas:
+            canvas.GetEventHandler().ProcessEvent(event)
 
-    def on_leftClick(self, event: wx.MouseEvent):
+    def _on_mouse_left_press(self, event: wx.MouseEvent):
         # Activates Text Input
         if event.LeftDClick():
             self.textCtrl.SetFocus()
-            parent = main.get_canvas()
 
         # Dragging the Popple.
         else:
             self.SetFocusIgnoringChildren()
 
-            parent = self.GetParent()
-            if isinstance(parent, Canvas):
-                parent.start_drag(self)
+            canvas = get_canvas()
+            canvas.start_drag(self)
         # event.Skip()
 
     # Propagates this up to the Canvas
-    def onRelease_leftClick(self, event: wx.Event):
-        self.on_unnecessary_input(event)
+    def _on_mouse_left_release(self, event: wx.Event):
+        self._on_unneeded_input(event)
 
     # Propagates this up to the Canvas
     def on_mouseMotion(self, event: wx.MouseEvent):
-        self.on_unnecessary_input()
+        self._on_unneeded_input()
         # event.Skip()
 
     # Propagates this up to the Canvas
-    def on_mouseWheel(self, event: wx.MouseEvent):
-        self.on_unnecessary_input(event)
+    def _on_mouse_wheel(self, event: wx.MouseEvent):
+        self._on_unneeded_input(event)
 
     # Use this instead of HasFocus so the textCtrl is taken into account.
     def hasFocus(self) -> bool:
         return self.textCtrl.HasFocus() or self.HasFocus()
 
     # Occurs if the TextCtrl is focused. (Text edit mode)
-    def on_textCtrl_focused(self, event: wx.Event):
+    def _on_textCtrl_focused(self, event: wx.Event):
         self.setEditable(True)
         event.Skip()
 
     # Occurs if the TextCtrl loses focus. (Text edit disabled)
-    def on_textCtrl_unfocused(self, event: wx.Event):
+    def _on_textCtrl_unfocused(self, event: wx.Event):
         self.setEditable(False)
         event.Skip()
 
     # Occurs when the Popple itself is focused.
-    def on_focused(self, event: wx.Event):
+    def _on_focused(self, event: wx.Event):
         self.Raise()
         event.Skip()
 
     # Occurs when the Popple itself loses focus.
-    def on_unfocused(self, event: wx.Event):
+    def _on_unfocused(self, event: wx.Event):
         event.Skip()
 
     # Sets editability of the textCtrl.
@@ -237,10 +235,10 @@ class Popple(wx.Panel):
         self.textCtrl.SetEditable(value)
 
     # Renders Borders.
-    def on_paint(self, event: wx.PaintEvent = None):
+    def _on_paint(self, event: wx.PaintEvent = None):
         dc = wx.PaintDC(self)  # event.GetEventObject()
         gc = wx.GraphicsContext.Create(dc)
-        parent = main.get_canvas()
+        parent = get_canvas()
         if not gc:
             return
 
@@ -262,10 +260,11 @@ class Popple(wx.Panel):
         gc.Flush()
 
 
-# The lines connecting between Popples.
-# They're not based on wx.Panel because I didn't find that necessary.
 class PoppleConnection:
-    ## TODO - Make things such as getting position related to the Connection.
+    """The lines connecting between Popples."""
+
+    # They're not based on wx.Panel because I didn't find that necessary.
+
     def __init__(self, widget1: Popple, widget2: Popple):
         self.widget1 = widget1
         self.widget2 = widget2
@@ -277,7 +276,7 @@ class PoppleConnection:
         if self.widget2:
             return self.get_widget_display_position(self.widget2)
         else:
-            canvas = main.get_canvas()
+            canvas = get_canvas()
             return canvas.get_display_mouse_position()
 
     def get_widget_display_position(self, popple: Popple) -> Vector2:
@@ -292,7 +291,7 @@ class PoppleConnection:
         if self.widget2:
             return self.get_widget_position(self.widget2)
         else:
-            canvas = main.get_canvas()
+            canvas = get_canvas()
             return canvas.get_mouse_position()
 
     def get_widget_position(self, popple: Popple) -> Vector2:
@@ -305,7 +304,7 @@ class PoppleConnection:
         if self.is_new():
             return True
         # line = self.get_line(False)
-        canvas = main.get_canvas()
+        canvas = get_canvas()
         pos1 = self.get_widget1_display_position()
         pos2 = self.get_widget2_display_position()
         posm = Vector2(canvas.get_display_mouse_position())
@@ -333,8 +332,8 @@ class PoppleConnection:
             return False
         return True
 
-    def on_focused(self):
+    def _on_focused(self):
         pass
 
-    def on_unfocused(self):
+    def _on_unfocused(self):
         pass
