@@ -2,9 +2,10 @@ import wx
 import json
 from enum import *
 from functions.vectors import *
-from canvas.canvas import *
+from functions.canvas import *
 from canvas.canvas_elements import *
 from functions.menubar import Window_Menubar
+from functions.bottomToolbar import BottomToolbar
 
 # CONTEXT
 # The textboxes in the program are called Popples internally.
@@ -47,6 +48,8 @@ class Window(wx.Frame):
 
         self._load_config()
         self.SetMenuBar(Window_Menubar())
+
+        self.update_title()
 
         self.Bind(wx.EVT_MOVE, self._on_window_moved)
         self.Bind(wx.EVT_SIZE, self._on_window_resized)
@@ -172,8 +175,7 @@ class Window(wx.Frame):
             else:
                 return True
 
-        self.file_history = list(filter(filter_func, self.file_history))
-        self.file_history.append(dir)
+        self.file_history = [dir] + list(filter(filter_func, self.file_history))
 
     def pass_function(self, _e=None):
         """Does nothing, meant to be a placeholder for unimplemented buttons."""
@@ -181,7 +183,8 @@ class Window(wx.Frame):
 
     def new(self, _e=None):
         """Function calledthrough File > New or CTRL+N"""
-        self._new_file()
+        if self.save_check_popup():
+            self._new_file()
 
     def _new_file(self):
         self._canvas.clear_all()
@@ -237,14 +240,16 @@ class Window(wx.Frame):
                 self.append_to_file_history(dir)
 
             self.current_file = dir
+            self._canvas.on_saved()
         except IOError:
             pass
             # TODO - Add a popup to indicate that saving the file has failed.
 
     ## Function called through File > Open or CTRL+O
     def open(self, _e: wx.CommandEvent = None):
-        if self._canvas.is_modified():
-            pass
+        popup_result = self.save_check_popup()
+        if not popup_result:
+            return
 
         dir: str = ""
         with wx.FileDialog(
@@ -271,7 +276,8 @@ class Window(wx.Frame):
         else:
             return
 
-        self._open_file(dir)
+        if self.save_check_popup():
+            self._open_file(dir)
 
     def _open_file(self, dir: str):
         """Function for opening a file"""
@@ -299,12 +305,15 @@ class Window(wx.Frame):
             self._canvas.append_popple_connection(widget1, widget2)
         self.append_to_file_history(dir)
         self.current_file = dir
+        self._canvas.on_saved()
 
     ## Function for closing a file
     def _on_close(self, event: wx.Event):
         self._save_config()
-
-        event.Skip()
+        if self.save_check_popup():
+            event.Skip()
+        else:
+            event.Veto()
 
     def get_canvas(self):
         return self._canvas
@@ -313,61 +322,60 @@ class Window(wx.Frame):
         self._canvas.update_display()
         self._toolbar.update_display()
 
+    def get_current_filename(self) -> str:
+        if isinstance(self.current_file, str):
+            index = self.current_file.rfind("/")
+            if index > -1:
+                return self.current_file[index+1:]
+            else:
+                return self.current_file
+        else:
+            return "Untitled"
+    
+    def update_title(self):
+        title = "Mindmapper - "
+        title += self.get_current_filename()
+        
+        if self._canvas.is_modified():
+            title += "*"
+        
+        self.SetTitle(title)
+    
+    def save_check_popup(self) -> bool:
+        if self._canvas.is_modified():
+            popup = wx.MessageDialog(
+                None,
+                "Would you like to save " + self.get_current_filename(),
+                "File is unsaved!",
+                wx.YES_NO | wx.CANCEL | wx.ICON_WARNING
+            )
+            popup.SetYesNoCancelLabels(
+                "Save",
+                "Discard",
+                "Cancel"
+            )
+            result = popup.ShowModal()
+            popup.Destroy()   # Free up system resources
 
-# TODO - Move this to it's own file
-class BottomToolbar(wx.Panel):
-    def __init__(self, parent):
-        super().__init__(parent, size=wx.Size(1, 40))
-
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        self._camera_zoom_counter = wx.StaticText(
-            self, label="hello world", name="counter_camera_zoom"
-        )
-        sizer.Add(self._camera_zoom_counter, 1, wx.EXPAND)
-        self._camera_pos_counter = wx.StaticText(
-            self, label="hello world", name="counter_camera_position"
-        )
-        sizer.Add(self._camera_pos_counter, 1, wx.EXPAND)
-
-        self.SetSizer(sizer)
-
-        canvas = get_canvas()
-
-        self.SetBackgroundColour(canvas.config_toolbar_background_colour)
-        for i in self.GetChildren():
-            if isinstance(i, wx.StaticText):
-                i.SetForegroundColour(canvas.config_toolbar_text_colour)
-        self.Show()
-        self.Raise()
-        self.update_display()
-
-    def update_display(self):
-        canvas: Canvas = get_canvas()
-
-        zoom_label_value = round(canvas.get_camera_zoom() * 100)
-        pos_value = round(canvas._camera_pos)
-
-        # Camera Zoom
-        zoom_label = "ZOOM: " + str(zoom_label_value) + "%"
-        self._camera_zoom_counter.SetLabel(zoom_label)
-
-        # Camera Position
-        pos_label = "X: " + str(pos_value.x) + "\n" + "Y: " + str(pos_value.y)
-        self._camera_pos_counter.SetLabel(pos_label)
-
+            if result == wx.ID_YES:
+                self.save()
+                return True
+            elif result == wx.ID_NO:
+                return True
+            elif result == wx.ID_CANCEL:
+                return False
+        else:
+            return True
 
 def get_window() -> Window:
     """Helper function to get the base window"""
     window = wx.GetTopLevelWindows()[0]
     return window
 
-
 def get_canvas():
     """Helper function to get the canvas window"""
     window = get_window()
     return window.get_canvas()
-
 
 def refresh():
     """Re-renders everything"""

@@ -3,7 +3,7 @@ from functions.vectors import *
 from canvas.canvas_elements import *
 from canvas.canvas_ui import *
 from main import refresh
-
+from main import get_window
 
 class Canvas(wx.Panel):
     """A singleton that represents the actual space that Popples and Popple Connections go on."""
@@ -97,9 +97,9 @@ class Canvas(wx.Panel):
             size = Popple.MINIMUM_SIZE
 
         true_pos = pos - (size * 0.5)
+        self.on_modified()
         return Popple(true_pos, size, text)
 
-    # Adds a new Popple Connection
     def append_popple_connection(self, popple1, popple2=None):
         """
         Adds a new Popple Connection to the canvas
@@ -125,6 +125,7 @@ class Canvas(wx.Panel):
         new_connection = PoppleConnection(popple1, popple2)
         self.popple_connections.append(new_connection)
         self.update_popple_connections()
+        self.on_modified()
         return new_connection
 
     def remove_popple(self, popple):
@@ -140,6 +141,7 @@ class Canvas(wx.Panel):
 
             self.popple_connections = list(filter(filter_func, self.popple_connections))
             popple.Destroy()
+            self.on_modified()
             refresh()
 
     def remove_popple_connection(self, popple_connection):
@@ -154,6 +156,7 @@ class Canvas(wx.Panel):
             self.popple_connections = list(filter(filter_func, self.popple_connections))
             if self._focused_popple_connection == popple_connection:
                 self._focused_popple_connection = None
+            self.on_modified()
             refresh()
 
     def get_popples(self) -> list:
@@ -471,6 +474,8 @@ class Canvas(wx.Panel):
                     self.get_new_connections()
                 ):  # Link any new connections to the Popple to link.
                     v.widget2 = popple_to_link
+                
+                self.on_modified()
 
     # Gets the item being dragged.
     def get_drag(self):
@@ -503,6 +508,7 @@ class Canvas(wx.Panel):
         # Drags the Popple's position around
         elif isinstance(_drag_element, Popple):
             _drag_element.pos = pos
+            self.on_modified()
             refresh()
 
         # Causes different behaviours depending on the Button's type.
@@ -517,7 +523,22 @@ class Canvas(wx.Panel):
             if _drag_element.type == CanvasButton.Types.RESIZE:
                 focused_popple = self.get_focused_popple()
                 focused_popple.set_size(pos)
+                self.on_modified()
                 refresh()
 
     def is_modified(self):
         return self._modified
+
+    def on_modified(self):
+        self._modified = True
+
+        window = get_window()
+        if window:
+            window.update_title()
+
+    def on_saved(self):
+        self._modified = False
+
+        window = get_window()
+        if window:
+            window.update_title()

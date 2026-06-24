@@ -20,11 +20,13 @@ class Window_Menubar(wx.MenuBar):
         parent.Bind(wx.EVT_MENU, parent.open, openFileItem)
 
         # TODO - Make this actually work.
-        self._open_recent_menu = self._update_open_recent_menu()
+        self._open_recent_menu: wx.Menu = wx.Menu()
+        self._update_open_recent_menu()
+        self._update_open_recent_menu()
         openRecentFileItem = fileMenu.Append(
             wx.ID_ANY, "&Open Recent", self._open_recent_menu
         )
-        # parent.Bind(wx.EVT_MENU, parent.openRecent, openRecentFileItem)
+        parent.Bind(wx.EVT_MENU_OPEN, self.on_open_recent_menu)
 
         fileMenu.Append(wx.ID_ANY, kind=wx.ITEM_SEPARATOR)
 
@@ -52,14 +54,20 @@ class Window_Menubar(wx.MenuBar):
         selectionMenu = wx.Menu()
         self.Append(selectionMenu, "Selection")
 
-    def _update_open_recent_menu(self, _e: wx.Event = None):
+    def on_open_recent_menu(self, event: wx.MenuEvent):
+        if event.GetMenu() == self._open_recent_menu:
+            self._update_open_recent_menu()
+        
+    def _update_open_recent_menu(self):
         from main import get_window
-
         parent = get_window()
 
-        result = wx.Menu()
-        for file_dir in parent.file_history:
-            item = result.Append(wx.ID_ANY, file_dir)
-            parent.Bind(wx.EVT_MENU, parent.openRecent, item, item.GetId())
+        for menu_item in self._open_recent_menu.GetMenuItems():
+            if isinstance(menu_item, wx.MenuItem):
+                self._open_recent_menu.Remove(menu_item.GetId())
+                menu_item.Destroy() # Free up system resources.
 
-        return result
+        for file_dir in parent.file_history:
+            menu_item = self._open_recent_menu.Append(wx.ID_ANY, file_dir)
+            #parent.Bind(wx.EVT_MENU_OPEN, self._update_open_recent_menu, menu_item, menu_item.GetId())
+            parent.Bind(wx.EVT_MENU, parent.openRecent, menu_item, menu_item.GetId())

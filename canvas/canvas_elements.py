@@ -2,7 +2,6 @@ import wx
 from functions.vectors import *
 from main import get_canvas
 
-
 class Popple(wx.Panel):
     # The minimum size that the Popple can be at.
     MINIMUM_SIZE: Vector2 = Vector2(150, 100)
@@ -76,8 +75,8 @@ class Popple(wx.Panel):
         self.update_display()
         event.Skip()
 
-    # Gets the position relative to the window.
     def get_display_position(self):
+        """Gets the position relative to the window."""
         pos = self.pos
 
         canvas = get_canvas()
@@ -87,15 +86,15 @@ class Popple(wx.Panel):
 
         return pos.get_as_Vector2i()
 
-    # Gets the internal size.
     def set_size(self, new_size: Vector2):
+        """Gets the internal size."""
         self.size = Vector2(
             max(self.MINIMUM_SIZE.x, new_size.x),
             max(self.MINIMUM_SIZE.y, new_size.y),
         )
 
-    # Gets the size relative to the window.
     def get_display_size(self):
+        """Gets the size relative to the window."""
         size = self.size
 
         canvas = get_canvas()
@@ -104,22 +103,24 @@ class Popple(wx.Panel):
 
         return size.get_as_Vector2i()
 
-    # Gets the rect of the Popple relative to the window. (Contains Position and Size)
     def get_display_rect(self) -> wx.Rect:
+        """Gets the rect of the Popple relative to the window. (Contains Position and Size)"""
         pos = self.get_display_position()
         size = self.get_display_size()
         return wx.Rect(pos.x, pos.y, size.x, size.y)
 
-    # Called when inputting text to the TextInput before the text is parsed.
     def _on_textCtrl_text_input(self, event: wx.KeyEvent):
+        """Called when inputting text to the TextInput before the text is parsed."""
         # Doesn't do anything right now.
 
         event.Skip()
-
-    # Called when inputting text to the TextInput after the text is parsed.
+    
     def _on_textCtrl_text_post(self, event: wx.CommandEvent):
-        # Doesn't do anything right now.
-
+        """Called when inputting text to the TextInput after the text is parsed."""
+        canvas = get_canvas()
+        if canvas:
+            canvas.on_modified()
+        
         self.update_display()
         event.Skip()
 
