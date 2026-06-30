@@ -148,6 +148,7 @@ class Vector2:
             return False
 
     def min(self, value):
+        """Returns a new Vector2 with the lowest compared coordinates"""
         value_vec = Vector2(value)
         result = Vector2(
             min(self.x, value_vec.x),
@@ -156,6 +157,7 @@ class Vector2:
         return result
 
     def max(self, value):
+        """Returns a new Vector2 with the highest compared coordinates"""
         value_vec = Vector2(value)
         result = Vector2(
             max(self.x, value_vec.x),
@@ -173,14 +175,22 @@ class Vector2:
         )
         return result
     
-    # Returns a copy of itself as a Tuple.
-    def get_as_tuple(self): return (self.x, self.y)
+    def is_in_bounds(self, min, max) -> bool:
+        """Returns True if the point is inside the minimum and maximum bounds. Otherwise returns False."""
+        if self == self.clamp(min,max):
+            return True
+        return False
+    
+    def get_as_tuple(self) -> tuple: 
+        """Returns a copy of itself as a Tuple."""
+        return (self.x, self.y)
 
-    # Returns a copy of itself with x and y rounded into integer values.
-    def get_as_Vector2i(self): return round(self)
+    def get_as_Vector2i(self): 
+        """Returns a copy of itself with x and y rounded into integer values."""
+        return round(self)
 
-    # Returns a copy of itself as wx.Point. Requires wxPython installed.
     def get_as_wxPoint(self):
+        """Returns a copy of itself as wx.Point. Requires wxPython installed, otherwise returns None."""
         try:
             import wx
             self_int = self.get_as_Vector2i()
@@ -189,9 +199,10 @@ class Vector2:
         except ModuleNotFoundError:
             # Error handling if the required module isn't installed.
             print("Function get_as_wxPoint requires the wxPython Module installed.")
-    
-    # Returns a copy of itself as wx.Size. Requires wxPython installed.
+            return None
+
     def get_as_wxSize(self):
+        """Returns a copy of itself as wx.Size. Requires wxPython installed, otherwise returns None"""
         try:
             import wx
             self_int = self.get_as_Vector2i()
@@ -201,8 +212,10 @@ class Vector2:
             # Error handling if the required module isn't installed.
             print("Function get_as_wxSize requires the wxPython Module installed.")
 
-    # Returns a copy of itself as pygame.Vector2. Requires Pygame installed.
+            return None
+
     def get_as_pgVector2(self):
+        """Returns a copy of itself as pygame.Vector2. Requires Pygame installed, otherwise returns None."""
         try:
             import pygame
             return pygame.Vector2(self.x, self.y)
@@ -210,6 +223,8 @@ class Vector2:
         except ModuleNotFoundError:
             # Error handling if the required module isn't installed.
             print("Function get_as_pgVector2 requires the pygame Module installed.")
+
+            return None
 
 if __name__ == "__main__":
     print(abs(Vector2((1, 3))))

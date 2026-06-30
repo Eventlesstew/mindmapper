@@ -142,7 +142,6 @@ class Canvas(wx.Panel):
             self.popple_connections = list(filter(filter_func, self.popple_connections))
             popple.Destroy()
             self.on_modified()
-            refresh()
 
     def remove_popple_connection(self, popple_connection):
         """Removes a Popple Connection"""
@@ -157,7 +156,6 @@ class Canvas(wx.Panel):
             if self._focused_popple_connection == popple_connection:
                 self._focused_popple_connection = None
             self.on_modified()
-            refresh()
 
     def get_popples(self) -> list:
         """Gets an array of all Popples."""
@@ -483,48 +481,34 @@ class Canvas(wx.Panel):
 
     def move_drag(self):
         """Moves the dragged item around. This behaviour varies depending on the object."""
-        _drag_element = self._drag_element
-
-        if not _drag_element:
+        if not self._drag_element:
             return
 
-        if _drag_element == self:
-            self._camera_pos = (
-                self._drag_position
-            )  # Direct modification for get_mouse_position to work correctly.
+        dragging_camera = self._drag_element == self
+
+        if dragging_camera:
+            # Direct modification for get_mouse_position to work correctly.
+            # Position will be properly updated later on.
+            self._camera_pos = self._drag_position
 
         mousePos = self.get_mouse_position()
         mouse_dist = mousePos - self._drag_mouse_position
 
-        if _drag_element == self:
+        if dragging_camera:
             mouse_dist *= -1
 
         pos = self._drag_position + mouse_dist
 
         # If dragging the canvas, move the camera around.
-        if _drag_element == self:
+        if self._drag_element == self:
             self.move_camera_to(pos)  # Properly updates Camera position
-
-        # Drags the Popple's position around
-        elif isinstance(_drag_element, Popple):
-            _drag_element.pos = pos
-            self.on_modified()
-            refresh()
-
-        # Causes different behaviours depending on the Button's type.
-        elif isinstance(_drag_element, CanvasButton):
-
-            # Link Button
-            if _drag_element.type == CanvasButton.Types.LINK:
-                # Since the PoppleConnection following the mouse is rendered visually, just give the program an update.
-                self.update_popple_connections()
-
-            # Resize button - Resizes the Popple
-            if _drag_element.type == CanvasButton.Types.RESIZE:
-                focused_popple = self.get_focused_popple()
-                focused_popple.set_size(pos)
-                self.on_modified()
-                refresh()
+        else:
+            try:
+                self._drag_element.on_drag(pos)
+            
+            # Not all draggable classes may have the on_drag function.
+            except AttributeError:
+                pass
 
     def is_modified(self):
         return self._modified
@@ -535,6 +519,8 @@ class Canvas(wx.Panel):
         window = get_window()
         if window:
             window.update_title()
+        
+        refresh()
 
     def on_saved(self):
         self._modified = False

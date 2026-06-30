@@ -1,6 +1,7 @@
 import wx
 from functions.vectors import *
 from main import get_canvas
+from enum import Enum
 
 class Popple(wx.Panel):
     # The minimum size that the Popple can be at.
@@ -9,6 +10,21 @@ class Popple(wx.Panel):
     # The font size used for the text.
     FONT_SIZE = 14
 
+    class _DRAG_STATE_TYPES(Enum):
+        TOP_LEFT=0
+        TOP=1
+        TOP_RIGHT=2
+        LEFT=3
+        CENTER=4
+        MOVE=4
+        RIGHT=5
+        BOTTOM_LEFT=6
+        BOTTOM=7
+        BOTTOM_RIGHT=8
+
+        OUTSIDE=-1
+        INACTIVE=-1
+    
     def __init__(self, pos: Vector2, size: Vector2 = MINIMUM_SIZE, text: str = ""):
         canvas = get_canvas()
         super().__init__(canvas, wx.ID_ANY, style=wx.BORDER_NONE)
@@ -45,6 +61,8 @@ class Popple(wx.Panel):
         self.pos: Vector2 = pos
         self.size: Vector2 = size
 
+        self._drag_state: Popple._DRAG_STATE_TYPES = Popple._DRAG_STATE_TYPES.INACTIVE
+
         # A seperate function is used because both the popple and the text element can recieve inputs.
         # I cannot just disable all binds for the textctrl because it needs to be able to get text when it can.
         def Bind(event: wx.PyEventBinder, handler):
@@ -53,7 +71,7 @@ class Popple(wx.Panel):
 
         Bind(wx.EVT_LEFT_DOWN, self._on_mouse_left_press)
         Bind(wx.EVT_LEFT_DCLICK, self._on_mouse_left_press)
-        Bind(wx.EVT_MOTION, self._on_unneeded_input)
+        Bind(wx.EVT_MOTION, self._on_mouse_motion)
         Bind(wx.EVT_LEFT_UP, self._on_mouse_left_release)
         Bind(wx.EVT_MOUSEWHEEL, self._on_mouse_wheel)
 
@@ -68,13 +86,62 @@ class Popple(wx.Panel):
         self.Bind(wx.EVT_WINDOW_CREATE, self._on_ready)
 
         self.update_display()
-        # self.textCtrl.Bind(wx.EVT_MOTION, self._on_unneeded_input)
+        # self.textCtrl.Bind(wx.EVT_MOTION, self._propagate_event)
 
-    # A separate _on_ready function is necessary for drawing operations performed on initial creation of the window.
     def _on_ready(self, event: wx.Event):
+        """A separate _on_ready function is necessary for drawing operations performed on initial creation of the window."""
         self.update_display()
         event.Skip()
 
+    def _calculate_drag_state(self) -> _DRAG_STATE_TYPES:
+        """Calculates a new drag state based on the cursor position."""
+        canvas = get_canvas()
+        mouse_pos = canvas.get_mouse_position()
+
+        position = self.get_display_position()
+        opposite_position = position + self.get_display_size()
+
+        # Skips all of the heavy lifting if the mouse is outside the popple.
+        if (
+            mouse_pos.x < position.x or 
+            mouse_pos.x > opposite_position.x or
+            mouse_pos.y < position.y or
+            mouse_pos.y > opposite_position.y
+        ):
+            return self._DRAG_STATE_TYPES.OUTSIDE
+        
+        border = canvas.get_border_width() * 2
+        drag_anchor: Vector2 = Vector2(0,0)
+
+        if mouse_pos.x <= position.x + border:
+            drag_anchor.x = -1
+        elif mouse_pos.x >= opposite_position.x - border:
+            drag_anchor.x = 1
+        
+        if mouse_pos.y <= position.y + border:
+            drag_anchor.y = -1
+        elif mouse_pos.y >= opposite_position.y - border:
+            drag_anchor.y = 1
+        
+        if drag_anchor == Vector2(0,0):
+            return self._DRAG_STATE_TYPES.MOVE
+        elif drag_anchor == Vector2(-1,-1):
+            return self._DRAG_STATE_TYPES.TOP_LEFT
+        elif drag_anchor == Vector2(0,-1):
+            return self._DRAG_STATE_TYPES.TOP
+        elif drag_anchor == Vector2(1,-1):
+            return self._DRAG_STATE_TYPES.TOP_RIGHT
+        elif drag_anchor == Vector2(-1,0):
+            return self._DRAG_STATE_TYPES.LEFT
+        elif drag_anchor == Vector2(1,0):
+            return self._DRAG_STATE_TYPES.RIGHT
+        elif drag_anchor == Vector2(-1,1):
+            return self._DRAG_STATE_TYPES.BOTTOM_LEFT
+        elif drag_anchor == Vector2(0,1):
+            return self._DRAG_STATE_TYPES.BOTTOM
+        elif drag_anchor == Vector2(1,1):
+            return self._DRAG_STATE_TYPES.BOTTOM_RIGHT
+    
     def get_display_position(self):
         """Gets the position relative to the window."""
         pos = self.pos
@@ -92,6 +159,12 @@ class Popple(wx.Panel):
             max(self.MINIMUM_SIZE.x, new_size.x),
             max(self.MINIMUM_SIZE.y, new_size.y),
         )
+
+    def set_position(self, new_position: Vector2):
+        """Sets the position of the widget and properly updates it's display. Recommended over manually setting the position."""
+        self.pos = new_position
+        canvas = get_canvas()
+        canvas.on_modified()
 
     def get_display_size(self):
         """Gets the size relative to the window."""
@@ -176,7 +249,7 @@ class Popple(wx.Panel):
         }
         return data
 
-    def _on_unneeded_input(self, event: wx.Event):
+    def _propagate_event(self, event: wx.Event):
         """Overrides default behaviour and propagates it to the Canvas."""
         canvas = get_canvas()
         if canvas:
@@ -190,53 +263,108 @@ class Popple(wx.Panel):
         # Dragging the Popple.
         else:
             self.SetFocusIgnoringChildren()
-
+            self._drag_state = self._calculate_drag_state()
             canvas = get_canvas()
             canvas.start_drag(self)
         # event.Skip()
 
-    # Propagates this up to the Canvas
     def _on_mouse_left_release(self, event: wx.Event):
-        self._on_unneeded_input(event)
+        """Occurs when left click is released on this element"""
+        self._drag_state = self._DRAG_STATE_TYPES.INACTIVE
+        self._propagate_event(event)
 
-    # Propagates this up to the Canvas
-    def on_mouseMotion(self, event: wx.MouseEvent):
-        self._on_unneeded_input()
+    def set_cursor(self, cursor: wx.Cursor, textCtrl_cursor: wx.Cursor = None):
+        """Sets the cursor of itself and it's textCtrl. Recommended over the wxpython function."""
+
+        self.SetCursor(cursor)
+        if textCtrl_cursor:
+            self.textCtrl.SetCursor(textCtrl_cursor)
+        else:
+            self.textCtrl.SetCursor(cursor)
+
+    def _on_mouse_motion(self, event: wx.MouseEvent):
+        """Occurs when moving the mouse around."""
+
+        # TODO - Make it so you can actually drag the popple's edges to resize them.
+        # When finished, remove the two lines below.
+        self._propagate_event(event)
+        return
+
+        new_drag_state = self._drag_state
+        if self._drag_state == self._DRAG_STATE_TYPES.INACTIVE:
+            new_drag_state = self._calculate_drag_state()
+
+        if (
+            new_drag_state == self._DRAG_STATE_TYPES.TOP_LEFT or
+            new_drag_state == self._DRAG_STATE_TYPES.BOTTOM_RIGHT
+        ):
+            self.set_cursor(wx.Cursor(wx.CURSOR_SIZENWSE))
+
+        elif (
+            new_drag_state == self._DRAG_STATE_TYPES.TOP_RIGHT or
+            new_drag_state == self._DRAG_STATE_TYPES.BOTTOM_LEFT
+        ):
+            self.set_cursor(wx.Cursor(wx.CURSOR_SIZENESW))
+        
+        elif (
+            new_drag_state == self._DRAG_STATE_TYPES.TOP or
+            new_drag_state == self._DRAG_STATE_TYPES.BOTTOM
+        ):
+            self.set_cursor(wx.Cursor(wx.CURSOR_SIZENS))
+        
+        elif (
+            new_drag_state == self._DRAG_STATE_TYPES.LEFT or
+            new_drag_state == self._DRAG_STATE_TYPES.RIGHT
+        ):
+            self.set_cursor(wx.Cursor(wx.CURSOR_SIZEWE))
+        
+        else:
+            self.set_cursor(wx.Cursor(wx.CURSOR_HAND))
+
+        self._propagate_event(event)
         # event.Skip()
 
-    # Propagates this up to the Canvas
     def _on_mouse_wheel(self, event: wx.MouseEvent):
-        self._on_unneeded_input(event)
+        """Occurs during mouse wheel inputs on this element"""
+        self._propagate_event(event)
 
-    # Use this instead of HasFocus so the textCtrl is taken into account.
     def hasFocus(self) -> bool:
+        """Use this instead of HasFocus so the textCtrl is taken into account."""
         return self.textCtrl.HasFocus() or self.HasFocus()
 
-    # Occurs if the TextCtrl is focused. (Text edit mode)
     def _on_textCtrl_focused(self, event: wx.Event):
+        """Occurs if the TextCtrl is focused. (Text edit mode)"""
         self.setEditable(True)
         event.Skip()
 
-    # Occurs if the TextCtrl loses focus. (Text edit disabled)
     def _on_textCtrl_unfocused(self, event: wx.Event):
+        """Occurs if the TextCtrl loses focus. (Text edit disabled)"""
         self.setEditable(False)
         event.Skip()
 
-    # Occurs when the Popple itself is focused.
     def _on_focused(self, event: wx.Event):
+        """Occurs when the Popple itself is focused."""
         self.Raise()
         event.Skip()
 
-    # Occurs when the Popple itself loses focus.
     def _on_unfocused(self, event: wx.Event):
+        """Occurs when the Popple itself loses focus."""
         event.Skip()
 
-    # Sets editability of the textCtrl.
     def setEditable(self, value: bool):
+        """Sets editability of the textCtrl."""
         self.textCtrl.SetEditable(value)
 
-    # Renders Borders.
+    # Public function as it is called by the Canvas.
+    def on_drag(self, position:Vector2):
+        """Occurs when dragged."""
+        # TODO - Make it so you can actually drag this around.
+
+        #if self._drag_state == self._DRAG_STATE_TYPES.MOVE:
+        self.set_position(position)
+    
     def _on_paint(self, event: wx.PaintEvent = None):
+        """Renders Borders"""
         dc = wx.PaintDC(self)  # event.GetEventObject()
         gc = wx.GraphicsContext.Create(dc)
         parent = get_canvas()

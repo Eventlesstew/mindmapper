@@ -2,6 +2,7 @@ import wx
 from enum import Enum
 from functions.vectors import *
 from main import get_canvas
+from main import refresh
 from canvas.canvas_elements import *
 
 
@@ -125,7 +126,19 @@ class CanvasButton(wx.StaticBitmap):
 
     def on_focused(self, event: wx.FocusEvent):
         pass
+    
+    def on_drag(self, pos: Vector2):
+        # Link Button
+        if self.type == CanvasButton.Types.LINK:
+            # Since the PoppleConnection following the mouse is rendered visually, just give the program an update.
+            get_canvas().update_popple_connections()
 
+        # Resize button - Resizes the Popple
+        if self.type == CanvasButton.Types.RESIZE:
+            focused_popple = self.get_focused_popple()
+            focused_popple.set_size(pos)
+            get_canvas().on_modified()
+        
     def _on_mouse_left_press(self, event):
         focused_popple = self.get_focused_popple()
         if not isinstance(focused_popple, Popple):
